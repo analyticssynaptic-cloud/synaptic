@@ -192,7 +192,7 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
 
   // ---------- Clic: ARIA de cuerpo completo ----------
   const body = $('#ariaBody'), abVideo = $('#abVideo'), abHolo = $('#abHolo'), abCards = $('#abCards');
-  const holo = createHolo(abHolo);
+  let holo = null; // se crea (y descarga el modelo) solo al abrir la ventana
   const tabs = [...body.querySelectorAll('[data-t]')];
   function setTab(t) {
     tabs.forEach((b) => b.classList.toggle('on', b.dataset.t === t));
@@ -200,8 +200,8 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
     abHolo.style.display = isHolo ? '' : 'none';
     abCards.style.display = isHolo ? '' : 'none';
     abVideo.style.display = isHolo ? 'none' : '';
-    if (isHolo) { abVideo.pause(); holo.start(); }
-    else { holo.stop(); if (!abVideo.src) abVideo.src = BASE + 'aria/intro.mp4'; abVideo.currentTime = 0; abVideo.play().catch(() => {}); }
+    if (isHolo) { abVideo.pause(); (holo = holo || createHolo(abHolo)).start(); }
+    else { holo && holo.stop(); if (!abVideo.src) abVideo.src = BASE + 'aria/intro.mp4'; abVideo.currentTime = 0; abVideo.play().catch(() => {}); }
   }
   tabs.forEach((b) => (b.onclick = () => { sfx.click(); setTab(b.dataset.t); }));
   abVideo.addEventListener('ended', () => setTab('holo'));
@@ -209,12 +209,12 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
     sfx.init(); sfx.open();
     body.classList.add('on'); document.body.classList.add('ab-open'); state.modal = true;
     requestAnimationFrame(() => setTab('holo'));
-    holdUntil = performance.now() + 4000;
+    holdUntil = performance.now() + 12000;
     play('body');
   }
   function closeBody() {
     body.classList.remove('on'); document.body.classList.remove('ab-open'); state.modal = false;
-    holo.stop(); abVideo.pause(); sfx.close();
+    holo && holo.stop(); abVideo.pause(); sfx.close();
   }
   face.onclick = openBody;
   $('#abClose').onclick = closeBody;
@@ -257,7 +257,12 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
   function setJourney(on) {
     el.classList.toggle('hidden', !on);
     svg.style.display = on ? '' : 'none';
-    if (on) { idx = -1; say(0); } else stop();
+    if (on) {
+      const lv = $('#ariaLoop');
+      if (lv && !lv.getAttribute('src')) { lv.src = BASE + lv.dataset.src; }
+      lv && lv.play().catch(() => {});
+      idx = -1; say(0);
+    } else stop();
   }
 
   return { say, frame, setJourney, point, stop, play, _debug: () => ({ speaking, t: voiceEl.currentTime, paused: voiceEl.paused, wi, mouth, analyser: !!analyser, ctx: sfx.ctx && sfx.ctx.state }) };
