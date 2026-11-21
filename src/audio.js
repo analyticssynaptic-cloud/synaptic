@@ -11,6 +11,7 @@ export class Sfx {
     this.master.gain.value = this.muted ? 0 : 0.8;
     this.master.connect(this.ctx.destination);
     this._drone();
+    this.startCyber();
   }
 
   _drone() {
@@ -64,5 +65,53 @@ export class Sfx {
   collect() { [660, 880, 1320, 1760].forEach((f, i) => this._tone({ f, dur: 0.22, type: 'triangle', vol: 0.11, delay: i * 0.07 })); }
   eagle(on) { this._noise({ dur: 1.1, from: on ? 200 : 3000, to: on ? 3500 : 200, vol: 0.14 }); this._tone({ f: on ? 220 : 880, f2: on ? 880 : 220, dur: 0.6, type: 'sine', vol: 0.09 }); }
   boot() { [440, 660, 880].forEach((f, i) => this._tone({ f, dur: 0.15, type: 'square', vol: 0.05, delay: i * 0.09 })); }
+  // --- Capa cibernética: pulsos de datos aleatorios + zumbido servo ligado al scroll ---
+  startCyber() {
+    if (!this.ctx || this._cyber) return;
+    this._cyber = true;
+    const c = this.ctx;
+    // Zumbido servo (ruido filtrado)
+    const buf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource(); src.buffer = buf; src.loop = true;
+    this.whirF = c.createBiquadFilter(); this.whirF.type = 'bandpass'; this.whirF.Q.value = 7; this.whirF.frequency.value = 400;
+    this.whirG = c.createGain(); this.whirG.gain.value = 0;
+    src.connect(this.whirF); this.whirF.connect(this.whirG); this.whirG.connect(this.master); src.start();
+    // Pulsos de datos
+    const scale = [880, 1046, 1318, 1568, 1760, 2093, 2637];
+    const tick = () => {
+      if (!this._cyber) return;
+      if (!this.muted && !this.cyberOff) {
+        const f = scale[(Math.random() * scale.length) | 0];
+        const burst = Math.random() < 0.25;
+        const n = burst ? 5 + ((Math.random() * 4) | 0) : 1;
+        const pan = c.createStereoPanner ? c.createStereoPanner() : null;
+        if (pan) { pan.pan.value = Math.random() * 2 - 1; pan.connect(this.master); }
+        for (let i = 0; i < n; i++) {
+          const t = c.currentTime + i * 0.045, o = c.createOscillator(), g = c.createGain();
+          o.type = Math.random() < 0.5 ? 'square' : 'triangle';
+          o.frequency.setValueAtTime(f * (burst ? 1 + (i % 3) * 0.25 : 1), t);
+          g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(burst ? 0.018 : 0.03, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+          o.connect(g); g.connect(pan || this.master); o.start(t); o.stop(t + 0.09);
+        }
+      }
+      setTimeout(tick, 350 + Math.random() * 1500);
+    };
+    tick();
+  }
+
+  setWhir(v) {
+    if (!this.whirG || this.muted) return;
+    const t = this.ctx.currentTime;
+    this.whirG.gain.setTargetAtTime(Math.min(v * 0.1, 0.07), t, 0.08);
+    this.whirF.frequency.setTargetAtTime(280 + v * 2600, t, 0.08);
+  }
+
+  lock() {
+    this._tone({ f: 520, f2: 1040, dur: 0.12, type: 'square', vol: 0.06 });
+    this._tone({ f: 1560, dur: 0.18, type: 'triangle', vol: 0.05, delay: 0.1 });
+    this._noise({ dur: 0.35, from: 6000, to: 800, vol: 0.07 });
+  }
+
   rank() { [523, 659, 784, 1046, 1318].forEach((f, i) => this._tone({ f, dur: 0.35, type: 'triangle', vol: 0.12, delay: i * 0.1 })); }
 }

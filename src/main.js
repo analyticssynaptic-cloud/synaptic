@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Stage } from './stage.js';
 import { World, RING_R } from './world.js';
 import { Game } from './game.js';
+import { Chip, EXP_Y } from './chip.js';
 import { Sfx } from './audio.js';
 import { shared } from './hologram.js';
 import { SERVICES, CONFIG, RANKS } from './services.js';
@@ -149,7 +150,7 @@ function focusCam(i) {
 let panelTimer;
 function openNode(i) {
   if (!state.started || state.modal) return;
-  if (state.mode === 'journey') { const h = scroller.scrollHeight - scroller.clientHeight; scroller.scrollTo({ top: h * ((i + 1) / (SERVICES.length + 1)), behavior: 'smooth' }); return; }
+  if (state.mode === 'journey') { const h = scroller.scrollHeight - scroller.clientHeight; scroller.scrollTo({ top: h * ((order.indexOf(i) + 1) / (SERVICES.length + 1)), behavior: 'smooth' }); return; }
   const switching = state.focus >= 0;
   state.focus = i;
   sfx.click(); sfx.open();
@@ -275,6 +276,7 @@ $('#btnContact').onclick = () => openContact(state.focus >= 0 ? state.focus : st
 // ---------- Visión de Águila ----------
 function setEagle(on) {
   if (!state.started || state.eagle === on) return;
+  if (on && state.mode === 'journey') { toast('La Visión de Águila es del Modo Libre'); return; }
   state.eagle = on;
   document.body.classList.toggle('eagle', on);
   $('#btnEagle').classList.toggle('on', on);
@@ -435,23 +437,40 @@ function updateLabels() {
   place(coreLabel, cp);
 }
 
-// ---------- Modo Viaje (scroll cinematográfico) ----------
+// ---------- Modo Viaje: anatomía de un chip ----------
 const scroller = $('#scroller'), story = $('#story'), progressEl = $('#progress');
+// Capas de arriba hacia abajo ↔ servicios
+const LAYER_SERVICE = ['cyber', 'cloud', 'web', 'ia', 'arvr', 'iot', 'apps'];
+const LAYER_NAME = ['Blindaje superior', 'Disipación térmica', 'Cristal óptico', 'Núcleo de silicio', 'Cristal de proyección', 'Placa de circuitos', 'Plataforma base'];
+const order = LAYER_SERVICE.map((id) => SERVICES.findIndex((s) => s.id === id));
+const chip = new Chip(stage.scene, stage.renderer, order.map((i) => SERVICES[i].color));
 const chapters = [];
 {
-  const mk = (cls, color, html) => {
+  const mk = (cls, color, html, side = '') => {
     const sec = document.createElement('section');
-    sec.className = 'chap';
+    sec.className = 'chap ' + side;
     sec.innerHTML = `<div class="chap-in ${cls}" style="--c:${color}">${html}</div>`;
     story.appendChild(sec);
     chapters.push(sec.firstElementChild);
   };
-  mk('hero', '#00e5ff', `<div class="ey">// SYNAPTIC · ANIMUS</div><h2>Tu empresa, sincronizada con el futuro.</h2><p>Tecnología, inteligencia artificial y experiencias 3D. Desliza para viajar por nuestros siete recuerdos.</p><div class="scrollhint">▼ DESLIZA PARA VIAJAR</div>`);
-  SERVICES.forEach((s, i) => {
-    mk('', s.color, `<div class="ey">${s.code} · ${String(i + 1).padStart(2, '0')}/${String(SERVICES.length).padStart(2, '0')}</div><h2>${s.name}</h2><p>${s.tagline} ${s.desc.split('. ')[0]}.</p><div class="row"><button class="btn-main" data-detail="${i}" style="background:${s.color}">Ver detalle</button><button class="btn-ghost" data-contact="${i}">Cotizar</button></div>`);
+  mk('hero', '#7fe8ff', `<div class="ey">// SYNAPTIC · ANATOMÍA DE UN CHIP</div><h2>Descomponemos la tecnología para construir tu futuro.</h2><p>Siete capas. Siete servicios. Desliza y mira cómo se despliega por dentro.</p><div class="scrollhint">▼ DESLIZA PARA DESCOMPONER</div>`, 'L');
+  order.forEach((si, k) => {
+    const s = SERVICES[si];
+    mk('', s.color,
+      `<div class="ey">CAPA ${String(k + 1).padStart(2, '0')}/07 · ${LAYER_NAME[k].toUpperCase()}</div><h2>${s.name}</h2><p>${s.tagline} ${s.desc.split('. ')[0]}.</p><ul class="mini">${s.items.slice(0, 3).map((t) => `<li>${t}</li>`).join('')}</ul><div class="row"><button class="btn-main" data-detail="${si}" style="background:${s.color}">Ver detalle</button><button class="btn-ghost" data-contact="${si}">Cotizar</button></div>`,
+      k % 2 ? 'L' : '');
   });
-  mk('hero', '#ffc83d', `<div class="ey">// MISIÓN FINAL</div><h2>El siguiente recuerdo es tu proyecto.</h2><p>Cuéntanos qué quieres construir, o explora el mundo libremente y caza los fragmentos ocultos.</p><div class="row"><button class="btn-main" data-contact="-1">Iniciar misión →</button><button class="btn-ghost" data-free="1">Explorar en modo libre</button></div>`);
+  mk('hero', '#ffc83d', `<div class="ey">// ENSAMBLAJE COMPLETO</div><h2>El siguiente chip es tu proyecto.</h2><p>Cuéntanos qué quieres construir, o entra al modo libre y explora el Animus.</p><div class="row"><button class="btn-main" data-contact="-1">Iniciar misión →</button><button class="btn-ghost" data-free="1">Explorar en modo libre</button></div>`, 'L');
 }
+// Navegación por puntos
+progressEl.innerHTML = '';
+chapters.forEach((_, k) => {
+  const b = document.createElement('button');
+  b.className = 'dot';
+  b.title = k === 0 ? 'Inicio' : k === chapters.length - 1 ? 'Contacto' : LAYER_NAME[k - 1];
+  b.onclick = () => { const h = scroller.scrollHeight - scroller.clientHeight; scroller.scrollTo({ top: (h * k) / (chapters.length - 1), behavior: 'smooth' }); };
+  progressEl.appendChild(b);
+});
 story.addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   sfx.init(); sfx.click();
@@ -471,17 +490,63 @@ function openDetail(i) {
   if (first) toast(`+100 XP · ${SERVICES[i].name} sincronizado`);
 }
 
-const camTarget = (i) => {
-  const n = world.nodes[i];
-  const right = new THREE.Vector3(Math.cos(n.angle), 0, -Math.sin(n.angle));
-  return { theta: n.angle, phi: 0.12, radius: innerWidth > 900 ? 10.5 : 13, target: n.group.position.clone().addScaledVector(right, innerWidth > 900 ? 2.4 : 0) };
+// Ángulos de cámara por capa (rotación del chip en varios ángulos)
+const CAM = [{ t: 0.55, p: 0.42 }, { t: -0.85, p: 0.18 }, { t: 1.35, p: 0.62 }, { t: -0.25, p: 0.28 }, { t: 2.3, p: 0.5 }, { t: -1.6, p: 0.14 }, { t: 0.95, p: 0.72 }];
+const stops = () => {
+  const wide = innerWidth > 900;
+  const hr = (th, sh) => ({ tx: Math.cos(th) * sh, tz: -Math.sin(th) * sh });
+  const S = [{ theta: -0.7, phi: 0.4, radius: wide ? 17 : 24, ty: 2.8, e: 0, ...hr(-0.7, wide ? -3.6 : 0) }];
+  order.forEach((_, k) => {
+    const c = CAM[k];
+    const sh = wide ? (k % 2 ? -2.1 : 2.1) : 0; // texto a un lado, chip al otro
+    S.push({ theta: c.t, phi: c.p, radius: wide ? 14 : 17, tx: Math.cos(c.t) * sh, ty: EXP_Y[k], tz: -Math.sin(c.t) * sh, e: 1 });
+  });
+  S.push({ theta: Math.PI * 2 - 0.5, phi: 0.5, radius: wide ? 19 : 27, ty: 3.4, e: 0.15, ...hr(Math.PI * 2 - 0.5, wide ? -3.6 : 0) });
+  return S;
 };
-const stops = () => [
-  { theta: 0.3, phi: 0.5, radius: 33, target: new THREE.Vector3(0, 1.5, 0) },
-  ...SERVICES.map((_, i) => camTarget(i)),
-  { theta: 0.3 + Math.PI * 2, phi: 0.75, radius: 40, target: new THREE.Vector3(0, 1.5, 0) },
-];
-let smoothP = 0;
+// Anotaciones HUD alrededor de la capa activa (estilo visor técnico)
+const NS = 'http://www.w3.org/2000/svg';
+const annot = document.createElementNS(NS, 'svg'); annot.id = 'annot';
+const mkEl = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); annot.appendChild(e); return e; };
+const aPoly = mkEl('polygon', { class: 'a-line', fill: 'none' });
+const aLead = mkEl('polyline', { class: 'a-line', fill: 'none' });
+const aUnder = mkEl('line', { class: 'a-line' });
+const aT1 = mkEl('text', { class: 'a-txt big' }), aT2 = mkEl('text', { class: 'a-txt big' });
+const aDat = mkEl('text', { class: 'a-txt' }), aCta = mkEl('text', { class: 'a-txt' }), aCta2 = mkEl('line', { class: 'a-line' });
+const aDots = Array.from({ length: 5 }, () => mkEl('circle', { r: 2.2, class: 'a-dot' }));
+document.body.appendChild(annot);
+const aPos = new THREE.Vector3();
+const PT = [[-1.0, -0.55], [0.15, -1.05], [1.15, -0.3], [0.85, 0.85], [-0.75, 0.95]];
+function updateAnnot(x, t) {
+  const k = Math.max(0, Math.min(order.length - 1, Math.round(x - 1)));
+  const L = chip.layers[k], hl = x >= 0.5 && x <= order.length + 0.5 ? L.hl : 0;
+  annot.style.opacity = hl.toFixed(2);
+  if (hl < 0.02 || innerWidth < 900) return;
+  L.g.getWorldPosition(aPos);
+  const dist = aPos.distanceTo(stage.camera.position);
+  const s = innerHeight / (2 * dist * Math.tan(THREE.MathUtils.degToRad(stage.camera.fov / 2)));
+  aPos.project(stage.camera);
+  const cx = (aPos.x * 0.5 + 0.5) * innerWidth, cy = (-aPos.y * 0.5 + 0.5) * innerHeight, R = 2.7 * s;
+  const rot = Math.sin(t * 0.3) * 0.06, cr = Math.cos(rot), sr = Math.sin(rot);
+  const pts = PT.map(([px, py]) => [cx + (px * cr - py * sr) * R, cy + (px * sr + py * cr) * R]);
+  aPoly.setAttribute('points', pts.map((p) => p.join(',')).join(' '));
+  pts.forEach((p, i) => { aDots[i].setAttribute('cx', p[0]); aDots[i].setAttribute('cy', p[1]); });
+  const side = k % 2 ? 1 : -1;
+  const ax = pts[1][0], ay = pts[1][1];
+  const lx = Math.max(150, Math.min(innerWidth - 330, ax + side * R * 0.6 + (side > 0 ? 40 : -230)));
+  const ly = Math.max(140, ay - 38);
+  aLead.setAttribute('points', `${ax},${ay} ${ax + side * 28},${ly + 6} ${lx + (side > 0 ? 0 : 190)},${ly + 6}`);
+  aUnder.setAttribute('x1', lx); aUnder.setAttribute('x2', lx + 190); aUnder.setAttribute('y1', ly + 6); aUnder.setAttribute('y2', ly + 6);
+  aT1.setAttribute('x', lx); aT1.setAttribute('y', ly - 16); aT1.textContent = `CAPA_${String(k + 1).padStart(2, '0')} · ${LAYER_NAME[k].toUpperCase()}`;
+  aT2.setAttribute('x', lx); aT2.setAttribute('y', ly - 2); aT2.textContent = SERVICES[order[k]].name.toUpperCase();
+  const bx = pts[3][0] + 14, by = pts[3][1] + 26;
+  aDat.setAttribute('x', bx); aDat.setAttribute('y', by);
+  aDat.textContent = `TEMP ${(30 + k * 2.1 + Math.sin(t * 1.3) * 1.4).toFixed(2)}  +0${(1 + Math.abs(Math.sin(t * 0.7 + k))).toFixed(2)}`;
+  aCta.setAttribute('x', bx); aCta.setAttribute('y', by + 18); aCta.textContent = 'ID ' + (SERVICES[order[k]].code) + ' // VER DETALLE ▸';
+  aCta2.setAttribute('x1', bx); aCta2.setAttribute('x2', bx + 190); aCta2.setAttribute('y1', by + 24); aCta2.setAttribute('y2', by + 24);
+}
+
+let smoothP = 0, introT = 0, prevP = 0, lastNear = -1;
 function journeyCam(dt, t) {
   const max = scroller.scrollHeight - scroller.clientHeight;
   const p = max > 0 ? scroller.scrollTop / max : 0;
@@ -490,25 +555,25 @@ function journeyCam(dt, t) {
   const i = Math.min(n - 1, Math.floor(x));
   let f = x - i; f = f * f * (3 - 2 * f);
   const a = S[i], b = S[i + 1], g = stage.rig.goal;
-  let th = a.theta + (b.theta - a.theta + Math.round(0) ) * 0;
   const d = Math.atan2(Math.sin(b.theta - a.theta), Math.cos(b.theta - a.theta));
-  th = a.theta + d * f + Math.sin(t * 0.25) * 0.05;
+  let th = a.theta + d * f + Math.sin(t * 0.25) * 0.04;
   th += Math.round((g.theta - th) / (Math.PI * 2)) * Math.PI * 2;
   g.theta = th;
   g.phi = a.phi + (b.phi - a.phi) * f;
   g.radius = a.radius + (b.radius - a.radius) * f;
-  g.tx = a.target.x + (b.target.x - a.target.x) * f;
-  g.ty = a.target.y + (b.target.y - a.target.y) * f;
-  g.tz = a.target.z + (b.target.z - a.target.z) * f;
-  chapters.forEach((c, k) => {
-    const o = Math.max(0, Math.min(1, 1.15 - Math.abs(x - k) * 2.1));
-    c.style.setProperty('--o', o.toFixed(3));
-  });
+  g.tx = a.tx + (b.tx - a.tx) * f; g.ty = a.ty + (b.ty - a.ty) * f; g.tz = a.tz + (b.tz - a.tz) * f;
+  // Entrada cinematográfica
+  if (introT < 4) { introT += dt; const k = Math.pow(1 - introT / 4, 2); g.radius += k * 26; stage.fovGoal = 55 + k * 22; }
+  chip.setState(a.e + (b.e - a.e) * f, x);
+  updateAnnot(x, t);
+  sfx.setWhir(Math.abs(smoothP - prevP) / Math.max(dt, 0.001) * 0.6); prevP = smoothP;
+  chapters.forEach((c, k) => c.style.setProperty('--o', Math.max(0, Math.min(1, 1.15 - Math.abs(x - k) * 2.1)).toFixed(3)));
   const near = Math.round(x);
-  if (near >= 1 && near <= SERVICES.length && Math.abs(x - near) < 0.12 && !game.visited.has(near - 1)) {
-    const up = game.visit(near - 1); refreshHud(up); toast(`+100 XP · ${SERVICES[near - 1].name} sincronizado`);
+  [...progressEl.children].forEach((d, k) => d.classList.toggle('on', k === near));
+  if (near !== lastNear && Math.abs(x - near) < 0.2) { if (lastNear >= 0) sfx.lock(); lastNear = near; }
+  if (near >= 1 && near <= order.length && Math.abs(x - near) < 0.12 && !game.visited.has(order[near - 1])) {
+    const up = game.visit(order[near - 1]); refreshHud(up); toast(`+100 XP · ${SERVICES[order[near - 1]].name} sincronizado`);
   }
-  $('#progressFill').style.height = (smoothP * 100) + '%';
 }
 
 function setMode(m) {
@@ -518,16 +583,27 @@ function setMode(m) {
   scroller.classList.toggle('hidden', !journey);
   progressEl.classList.toggle('hidden', !journey);
   labelsEl.classList.toggle('off', journey);
-  $('#hint').classList.toggle('fade', journey);
+  document.body.classList.toggle('journey', journey);
   $('#modeLbl').textContent = journey ? 'Modo Libre' : 'Viaje';
+  chip.group.visible = journey;
+  annot.style.display = journey ? '' : 'none';
+  sfx.cyberOff = !journey && false;
+  world.root.visible = !journey;
+  stage.scene.background = new THREE.Color(journey ? 0x1d222a : 0x01030a);
+  stage.renderer.toneMapping = journey ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+  stage.renderer.toneMappingExposure = 1.05;
+  if (journey) { stage.bloom.strength = 0.42; stage.bloom.radius = 0.55; stage.bloom.threshold = 0.72; if (state.eagle) setEagle(false); }
+  else { stage.bloom.strength = 0.75; stage.bloom.radius = 0.5; stage.bloom.threshold = 0.2; }
   if (panel.classList.contains('open')) { panel.classList.remove('open'); state.detail = -1; }
   if (!journey) {
     state.focus = -1; state.idle = 0;
+    if (shared.uReveal.value < 1) stage.tween({ from: shared.uReveal.value, to: 1, dur: 1.6, ease: 'out', onUpdate: (k, v) => (shared.uReveal.value = v) });
+    stage.fovGoal = 55;
     stage.flyTo({ phi: 0.5, radius: 33, target: new THREE.Vector3(0, 1.5, 0), dur: 1.8 });
     toast('Modo libre · arrastra, explora y pulsa [E]');
   } else {
-    scroller.scrollTop = 0; smoothP = 0;
-    toast('Modo viaje · desliza para recorrer');
+    scroller.scrollTop = 0; smoothP = 0; introT = 0;
+    toast('Modo viaje · desliza para descomponer el chip');
   }
 }
 $('#btnMode').onclick = () => { sfx.init(); setMode(state.mode === 'journey' ? 'free' : 'journey'); };
@@ -546,11 +622,8 @@ startBtn.onclick = () => {
   $('#hud').classList.remove('hidden');
   state.started = true;
   refreshHud();
-  stage.tween({ from: 0, to: 1, dur: 3.2, ease: 'inOut', onUpdate: (k, v) => (shared.uReveal.value = v) });
-  stage.flyTo({ theta: stage.rig.goal.theta + 1.2, phi: 0.5, radius: 33, target: new THREE.Vector3(0, 1.5, 0), dur: 5, fovKick: 25 });
-  setTimeout(() => { state.introDone = true; setMode('journey'); }, 5200);
-  setTimeout(() => toast('Bienvenido al Animus · Toca un recuerdo para sincronizar'), 2500);
-  setTimeout(() => { if (!game.eagleUsed) toast('Pulsa [E] — Visión de Águila: fragmentos ocultos', true); }, 8500);
+  state.introDone = true;
+  setMode('journey');
 };
 
 // ---------- Bucle principal ----------
@@ -584,7 +657,7 @@ function frame(now) {
   }
 
   stage.update(dt);
-  world.update(t, dt, state.eagle);
+  if (state.mode === 'journey') chip.update(t, dt); else world.update(t, dt, state.eagle);
   if (state.started) { updateLabels(); drawRadar(t); }
   stage.render();
 
@@ -595,11 +668,11 @@ function frame(now) {
       lowered = true;
       stage.dpr = 1; shared.uPx.value = 1;
       stage.renderer.setPixelRatio(1); stage.composer.setPixelRatio(1); stage.resize();
-      stage.bloom.strength = 0.6;
+      stage.bloom.strength = Math.min(stage.bloom.strength, 0.5);
     }
   }
 }
 requestAnimationFrame(frame);
 
 // Exponer para depuración
-window.__synaptic = { stage, world, game, state, openNode };
+window.__synaptic = { stage, world, game, state, openNode, chip, skipIntro: () => { introT = 4; } };

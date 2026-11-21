@@ -200,3 +200,25 @@ body.eagle #eagleFx { opacity: 1; }
 #progress { position: fixed; right: 0; top: 0; bottom: 0; width: 3px; z-index: 9; background: rgba(0,229,255,0.08); }
 #progress i { display: block; width: 100%; height: 0; background: linear-gradient(var(--vio), var(--cy)); box-shadow: 0 0 12px var(--cy); }
 @media (max-width: 900px) { .chap, .chap:first-child { align-items: flex-end; padding: 0 6vw 12vh; justify-content: flex-start; } .chap-in { width: 88vw; } }
+
+/* ===== Chip: ajustes del viaje ===== */
+.chap.L { justify-content: flex-start; }
+.chap.L .chap-in { text-align: left; }
+.mini { list-style: none; display: grid; gap: 6px; margin: 0 0 22px; font-size: 1.02rem; opacity: 0.92; max-width: 44ch; }
+.mini li::before { content: '▸ '; color: var(--c); }
+#progress { right: 18px; left: auto; top: 50%; bottom: auto; width: auto; height: auto; transform: translateY(-50%); background: none; display: flex; flex-direction: column; gap: 14px; }
+#progress .dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(220,240,255,.6); background: transparent; padding: 0; cursor: pointer; transition: 0.3s; }
+#progress .dot:hover { background: rgba(220,240,255,.6); }
+#progress .dot.on { background: #fff; box-shadow: 0 0 12px #fff; transform: scale(1.5); }
+body.journey .hud-bl, body.journey .hud-br, body.journey .hud-bc { display: none; }
+body.journey .brand-mark { color: #cfe9f5; filter: none; }
+@media (max-width: 900px) { .chap.L { justify-content: flex-start; } #progress { right: 8px; gap: 10px; } }
+
+/* ===== Anotaciones HUD (visor técnico) ===== */
+#annot { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 7; pointer-events: none; opacity: 0; }
+.a-line { stroke: rgba(240,248,255,0.85); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.a-dot { fill: #fff; }
+.a-txt { font-family: var(--font-m); font-size: 11px; fill: #f2f8ff; letter-spacing: 0.08em; }
+.a-txt.big { font-size: 12.5px; letter-spacing: 0.1em; }
+.chap h2, .chap p, .chap .ey, .mini { text-shadow: 0 2px 18px rgba(8,12,18,0.75); }
+body.journey .brand { text-shadow: 0 0 14px rgba(0,0,0,0.5); }
