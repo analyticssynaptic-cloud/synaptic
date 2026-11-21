@@ -36,7 +36,7 @@ export class Stage {
   constructor(canvas) {
     this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.dpr = Math.min(window.devicePixelRatio || 1, innerWidth < 900 ? 1.5 : 2);
     this.renderer.setPixelRatio(this.dpr);
     this.renderer.setSize(innerWidth, innerHeight);
     shared.uPx.value = this.dpr;

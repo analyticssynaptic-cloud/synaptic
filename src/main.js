@@ -332,7 +332,7 @@ canvas.addEventListener('pointermove', (e) => {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
     if (state.mode === 'journey') {
-      if (e.pointerType === 'touch') scroller.scrollTop -= dy * 1.6;
+      if (e.pointerType === 'touch') scroller.scrollTop -= dy * 2.2;
       else if (!state.modal) { orbit.th -= dx * 0.006; orbit.ph = THREE.MathUtils.clamp(orbit.ph + dy * 0.004, -0.5, 0.6); }
     } else if (state.focus < 0 && !state.modal) {
       stage.rig.goal.theta -= dx * 0.0055;
@@ -510,13 +510,14 @@ const CAM = [{ t: 0.55, p: 0.42 }, { t: -0.85, p: 0.18 }, { t: 1.35, p: 0.62 }, 
 const stops = () => {
   const wide = innerWidth > 900;
   const hr = (th, sh) => ({ tx: Math.cos(th) * sh, tz: -Math.sin(th) * sh });
-  const S = [{ theta: -0.7, phi: 0.4, radius: wide ? 17 : 24, ty: 2.8, e: 0, ...hr(-0.7, wide ? -3.6 : 0) }];
+  const dy = wide ? 0 : 3.2;
+  const S = [{ theta: -0.7, phi: 0.4, radius: wide ? 17 : 24, ty: 2.8 - dy, e: 0, ...hr(-0.7, wide ? -3.6 : 0) }];
   order.forEach((_, k) => {
     const c = CAM[k];
     const sh = wide ? (k % 2 ? -2.1 : 2.1) : 0; // texto a un lado, chip al otro
-    S.push({ theta: c.t, phi: c.p, radius: wide ? 14 : 17, tx: Math.cos(c.t) * sh, ty: EXP_Y[k], tz: -Math.sin(c.t) * sh, e: 1 });
+    S.push({ theta: c.t, phi: c.p, radius: wide ? 14 : 17, tx: Math.cos(c.t) * sh, ty: EXP_Y[k] - dy * 0.75, tz: -Math.sin(c.t) * sh, e: 1 });
   });
-  S.push({ theta: Math.PI * 2 - 0.5, phi: 0.5, radius: wide ? 19 : 27, ty: 3.4, e: 0.15, ...hr(Math.PI * 2 - 0.5, wide ? -3.6 : 0) });
+  S.push({ theta: Math.PI * 2 - 0.5, phi: 0.5, radius: wide ? 19 : 27, ty: 3.4 - dy, e: 0.15, ...hr(Math.PI * 2 - 0.5, wide ? -3.6 : 0) });
   return S;
 };
 // Anotaciones HUD alrededor de la capa activa (estilo visor técnico)
@@ -688,6 +689,7 @@ startBtn.onclick = () => {
 let last = performance.now(), t = 0, slow = 0, lowered = false, hoverKey = '';
 function frame(now) {
   requestAnimationFrame(frame);
+  if (document.body.classList.contains('ab-open')) { last = now; return; }
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now; t += dt;
   shared.uTime.value = t;

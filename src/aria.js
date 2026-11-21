@@ -1,11 +1,10 @@
 import { CONFIG, SERVICES } from './services.js';
+import { createHolo } from './ariaHolo.js';
 
 const $ = (s) => document.querySelector(s);
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9ñ ]/g, ' ');
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const BASE = (import.meta.env.BASE_URL || './').replace(/\/?$/, '/');
-const ARIA_REPO = 'https://github.com/analyticssynaptic-cloud/ARIA-Red-Sinaptica';
-const ARIA_PAGES = 'https://analyticssynaptic-cloud.github.io/ARIA-Red-Sinaptica/';
 
 // Frases que terminan mostrando el número (no se dicta en voz)
 const PHONE_IDS = new Set(['ch8', 'gracias', 'precio', 'contacto', 'ubicacion', 'fallback']);
@@ -83,7 +82,7 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
   function stop() {
     clearTimeout(settle);
     voiceEl.pause();
-    if (speaking) { speaking = false; el.classList.remove('talking'); sfx.duck && sfx.duck(false); talk.pause(); }
+    if (speaking) { speaking = false; el.classList.remove('talking'); sfx.duck && sfx.duck(false); }
   }
 
   async function play(id, { onEnd } = {}) {
@@ -104,11 +103,10 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
     voiceEl.currentTime = 0;
     try { await voiceEl.play(); } catch (e) { render(entry.text, true); onEnd && onEnd(); return; }
     speaking = true; el.classList.add('talking'); sfx.duck && sfx.duck(true);
-    talk.currentTime = 0; talk.play().catch(() => {});
   }
   voiceEl.addEventListener('ended', () => {
     if (!cur) return;
-    mark(1e9); speaking = false; el.classList.remove('talking'); sfx.duck && sfx.duck(false); talk.pause();
+    mark(1e9); speaking = false; el.classList.remove('talking'); sfx.duck && sfx.duck(false);
     const cb = cur.onEnd; cur = null; cb && cb();
   });
 
@@ -130,19 +128,44 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
   }
 
   // ---------- Preguntas ----------
-  function ask(q) {
+  const history = [];
+  const showSvc = (svc) => {
+    const ch = order.indexOf(SERVICES.findIndex((s) => s.id === svc)) + 1;
+    if (ch > 0) setTimeout(() => goChapter(ch), 700);
+  };
+  // Respuesta libre con Groq (vía el intermediario seguro, la clave no vive en la página)
+  async function askAI(q) {
+    stop(); act.innerHTML = '';
+    textEl.innerHTML = '<span class="aria-typing"><i></i><i></i><i></i></span>';
+    try {
+      const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 12000);
+      const r = await fetch(CONFIG.ariaApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q, history: history.slice(-6) }), signal: ctrl.signal });
+      clearTimeout(to);
+      if (!r.ok) throw new Error('http ' + r.status);
+      const { answer, tag } = await r.json();
+      if (!answer) throw new Error('vacía');
+      history.push({ role: 'user', content: q }, { role: 'assistant', content: answer });
+      render(answer, false);
+      let k = 0; const ws = textEl.querySelectorAll('.w');
+      const tmr = setInterval(() => { if (k >= ws.length) return clearInterval(tmr); ws[k++].classList.add('said'); }, 55);
+      if (tag === 'contacto') showPhone('contacto');
+      else if (tag && tag.startsWith('svc:')) showSvc(tag.slice(4));
+      return true;
+    } catch (e) { return false; }
+  }
+  async function ask(q) {
     q = q.trim(); if (!q) return;
     const n = ' ' + norm(q) + ' ';
     let best = null, bs = 0;
     KB.forEach((e) => { let s = 0; e.k.forEach((kw) => { const k = norm(kw); if (n.includes(' ' + k) || (k.length > 3 && n.includes(k))) s += k.length > 4 ? 2 : 1; }); if (s > bs) { bs = s; best = e; } });
-    const entry = best && bs >= 1 ? best : { id: 'fallback' };
     holdUntil = performance.now() + 15000;
     bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop');
+    // Preguntas conocidas: respuesta con su voz grabada. El resto: Groq (si está configurado).
+    const known = best && (bs >= 2 || (bs >= 1 && n.trim().split(' ').length <= 4));
+    if (!known && CONFIG.ariaApi && (await askAI(q))) return;
+    const entry = best && bs >= 1 ? best : { id: 'fallback' };
     play(entry.id);
-    if (entry.svc) {
-      const ch = order.indexOf(SERVICES.findIndex((s) => s.id === entry.svc)) + 1;
-      if (ch > 0) setTimeout(() => goChapter(ch), 700);
-    }
+    if (entry.svc) showSvc(entry.svc);
   }
   form.addEventListener('submit', (e) => { e.preventDefault(); const q = input.value; input.value = ''; sfx.init(); ask(q); });
   CHIPS.forEach(([label]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'aria-chip'; b.textContent = label; b.onclick = () => { sfx.init(); sfx.click(); ask(label); }; chipsEl.appendChild(b); });
@@ -151,6 +174,7 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
   const paintMute = () => { muteBtn.textContent = voiceOn ? 'Voz activada' : 'Voz apagada'; muteBtn.classList.toggle('off', !voiceOn); };
   muteBtn.onclick = () => { voiceOn = !voiceOn; try { localStorage.setItem('synaptic.ariaVoice', voiceOn ? '1' : '0'); } catch (e) { /* ok */ } paintMute(); if (!voiceOn) { stop(); mark(1e9); } };
   paintMute();
+  $('#ariaChatBtn').onclick = () => { el.classList.toggle('chat'); $('#ariaChatBtn').textContent = el.classList.contains('chat') ? 'Cerrar' : 'Preguntar'; if (el.classList.contains('chat')) setTimeout(() => input.focus(), 50); };
   replayBtn.textContent = '↻ Repetir';
   replayBtn.onclick = () => { sfx.init(); play(cur ? cur.id : `ch${Math.max(0, idx)}`); };
   el.addEventListener('wheel', (e) => { if (state.mode === 'journey' && !e.target.closest('input,.aria-bubble')) { e.preventDefault(); scroller.scrollTop += e.deltaY; } }, { passive: false });
@@ -166,32 +190,31 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
   });
   face.addEventListener('pointerleave', () => el.classList.remove('notice'));
 
-  // ---------- Clic: ARIA de cuerpo completo (su proyecto) ----------
-  const body = $('#ariaBody'), abVideo = $('#abVideo'), abFrame = $('#abFrame'), abEnd = $('#abEnd');
+  // ---------- Clic: ARIA de cuerpo completo ----------
+  const body = $('#ariaBody'), abVideo = $('#abVideo'), abHolo = $('#abHolo'), abCards = $('#abCards');
+  const holo = createHolo(abHolo);
   const tabs = [...body.querySelectorAll('[data-t]')];
   function setTab(t) {
     tabs.forEach((b) => b.classList.toggle('on', b.dataset.t === t));
-    const isVideo = t === 'body';
-    abVideo.style.display = isVideo ? '' : 'none';
-    abEnd.style.display = 'none';
-    abFrame.style.display = isVideo ? 'none' : '';
-    if (isVideo) { abFrame.src = 'about:blank'; abVideo.currentTime = 0; abVideo.play().catch(() => {}); }
-    else { abVideo.pause(); abFrame.src = t === 'red' ? ARIA_PAGES : ARIA_PAGES + 'avatar.html'; }
+    const isHolo = t === 'holo';
+    abHolo.style.display = isHolo ? '' : 'none';
+    abCards.style.display = isHolo ? '' : 'none';
+    abVideo.style.display = isHolo ? 'none' : '';
+    if (isHolo) { abVideo.pause(); holo.start(); }
+    else { holo.stop(); if (!abVideo.src) abVideo.src = BASE + 'aria/intro.mp4'; abVideo.currentTime = 0; abVideo.play().catch(() => {}); }
   }
   tabs.forEach((b) => (b.onclick = () => { sfx.click(); setTab(b.dataset.t); }));
-  abVideo.addEventListener('ended', () => { abEnd.style.display = ''; });
-  $('#abNext').onclick = () => setTab('red');
-  $('#abGit').href = ARIA_REPO;
+  abVideo.addEventListener('ended', () => setTab('holo'));
   function openBody() {
     sfx.init(); sfx.open();
-    body.classList.add('on'); state.modal = true;
-    setTab('body');
+    body.classList.add('on'); document.body.classList.add('ab-open'); state.modal = true;
+    requestAnimationFrame(() => setTab('holo'));
     holdUntil = performance.now() + 4000;
     play('body');
   }
   function closeBody() {
-    body.classList.remove('on'); state.modal = false;
-    abVideo.pause(); abFrame.src = 'about:blank'; sfx.close();
+    body.classList.remove('on'); document.body.classList.remove('ab-open'); state.modal = false;
+    holo.stop(); abVideo.pause(); sfx.close();
   }
   face.onclick = openBody;
   $('#abClose').onclick = closeBody;
@@ -206,38 +229,20 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
   const apPath = svg.querySelector('#apPath'), ping1 = svg.querySelector('#apPing1'), ping2 = svg.querySelector('#apPing2'), apDot = svg.querySelector('#apDot');
   function point(k, dur = 4) { if (k >= 0 && k <= 6) { pointK = k; pointT = dur; } }
 
-  // ---------- Frame: labios, cabeza, mirada y señal ----------
+  // ---------- Frame: karaoke y señal (sin animar labios) ----------
   function frame(dt, t) {
-    // Energía real de la voz
-    let rms = 0;
-    if (speaking && analyser) { analyser.getByteTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; s += v * v; } rms = Math.sqrt(s / buf.length); }
-    env = rms > env ? env + (rms - env) * 0.6 : env * Math.exp(-dt * 14);
-    // Palabra en curso según los tiempos exactos de la voz
-    let inWord = false;
     if (speaking && cur) {
       const ct = voiceEl.currentTime;
-      while (wi < cur.marks.length && cur.marks[wi].s <= ct + 0.03) { mark(cur.marks[wi].end); wi++; nod = 1; }
-      const w = cur.marks[wi - 1];
-      inWord = !!w && ct <= w.e + 0.05;
-      if (!analyser) env = inWord ? 0.12 + 0.08 * Math.abs(Math.sin(ct * 18)) : 0;
+      while (wi < cur.marks.length && cur.marks[wi].s <= ct + 0.03) { mark(cur.marks[wi].end); wi++; }
     }
-    const target = speaking ? (inWord ? clamp(env * 9, 0.24, 1) : clamp(env * 3, 0, 0.12)) : 0;
-    mouth += (target - mouth) * (1 - Math.exp(-dt * 22));
-    nod *= Math.exp(-dt * 7);
-    talk.style.opacity = mouth > 0.18 ? 1 : 0;
-    talk.playbackRate = clamp(0.8 + mouth * 0.7, 0.5, 2);
-    el.style.setProperty('--amp', mouth.toFixed(2));
-
-    // Señalar la capa de vez en cuando
     gestureT -= dt;
     const ak = activeLayer();
     if (gestureT <= 0) { gestureT = 10 + Math.random() * 8; if (ak >= 0 && state.mode === 'journey') point(ak, 3.2); }
-    const r = wrap.getBoundingClientRect(), sx = r.left + r.width / 2, sy = r.top + r.height / 2;
-    let tx = clamp((mx - sx) / innerWidth * 46, -20, 20), ty = clamp(-(my - sy) / innerHeight * 22, -10, 10);
     if (pointT > 0 && pointK >= 0) {
       pointT -= dt;
-      const L = layerScreen(pointK);
+      const L = layerScreen(pointK), r = wrap.getBoundingClientRect();
       if (L && L.vis && r.width) {
+        const sx = r.left + r.width / 2, sy = r.top + r.height / 2;
         const qx = (sx + L.x) / 2, qy = Math.min(sy, L.y) - 70;
         apPath.setAttribute('d', `M${sx},${sy} Q${qx},${qy} ${L.x},${L.y}`);
         apPath.style.strokeDashoffset = (-t * 40) % 1000;
@@ -245,14 +250,8 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
         for (const [c, p] of [[ping1, p1], [ping2, p2]]) { c.setAttribute('cx', L.x); c.setAttribute('cy', L.y); c.setAttribute('r', 8 + p * 34); c.style.opacity = (1 - p) * 0.8; }
         apDot.setAttribute('cx', L.x); apDot.setAttribute('cy', L.y);
         svg.style.opacity = clamp(pointT * 2, 0, 1);
-        tx = clamp((L.x - sx) / innerWidth * 80, -30, 30); ty = clamp(-(L.y - sy) / innerHeight * 34, -16, 16);
       }
     } else svg.style.opacity = 0;
-    // Movimiento natural: deriva lenta + asentir con cada palabra
-    tx += Math.sin(t * 0.7) * 3; ty += Math.sin(t * 0.9 + 1) * 2 - nod * 5;
-    ry += (tx - ry) * (1 - Math.exp(-dt * 4)); rx += (ty - rx) * (1 - Math.exp(-dt * 4));
-    const tilt = Math.sin(t * 0.5) * 2 + (speaking ? Math.sin(t * 2.3) * 1.5 : 0);
-    face.style.transform = `perspective(280px) rotateY(${ry.toFixed(1)}deg) rotateX(${rx.toFixed(1)}deg) rotateZ(${tilt.toFixed(1)}deg) translateY(${(-mouth * 2 - nod * 2).toFixed(1)}px) scale(${(1 + mouth * 0.025).toFixed(3)})`;
   }
 
   function setJourney(on) {

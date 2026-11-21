@@ -110,12 +110,11 @@
       <i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><i class="orb o4"></i>
       <button class="aria-face" id="ariaFace" aria-label="Hablar con ARIA">
         <video id="ariaLoop" src="aria-loop.mp4" muted loop playsinline autoplay preload="auto"></video>
-        <video id="ariaTalk" src="aria-talk.mp4" muted loop playsinline preload="auto"></video>
       </button>
     </div>
     <div class="aria-bubble" id="ariaBubble">
       <span class="tail t1"></span><span class="tail t2"></span><span class="tail t3"></span>
-      <div class="aria-head"><b>ARIA · asistente de Synaptic</b><button id="ariaMute" class="aria-pill" type="button">Voz activada</button></div>
+      <div class="aria-head"><b>ARIA · asistente de Synaptic</b><span><button id="ariaChatBtn" class="aria-chatbtn" type="button">Preguntar</button> <button id="ariaMute" class="aria-pill" type="button">Voz activada</button></span></div>
       <p id="ariaText"></p>
       <div id="ariaAct"></div>
       <div class="aria-chips" id="ariaChips"></div>
@@ -127,18 +126,24 @@
     <div class="ab-box">
       <button class="x" id="abClose" aria-label="Cerrar">✕</button>
       <div class="ab-head">
-        <div><div class="ab-k">Proyecto · ARIA Red Sináptica</div><h2>ARIA de cuerpo completo</h2></div>
+        <div><div class="ab-k">ARIA · asistente de Synaptic</div><h2>Así estoy hecha</h2></div>
         <div class="ab-tabs">
-          <button data-t="body" class="on">Cuerpo completo</button>
-          <button data-t="red">Su red neuronal</button>
-          <button data-t="avatar">Avatar 3D</button>
-          <a id="abGit" class="ab-git" target="_blank" rel="noopener">Ver en GitHub ↗</a>
+          <button data-t="holo" class="on">Holograma 3D</button>
+          <button data-t="video">Video</button>
         </div>
       </div>
       <div class="ab-stage">
-        <video id="abVideo" src="aria/intro.mp4" playsinline muted preload="none"></video>
-        <div id="abEnd" class="ab-end" style="display:none"><p>Así soy de cuerpo completo. ¿Quieres ver la red de agentes que me compone?</p><button class="btn-main" id="abNext" style="background:#7fe8ff">Ver su red neuronal →</button></div>
-        <iframe id="abFrame" title="Proyecto ARIA Red Sináptica" style="display:none" allow="autoplay; fullscreen"></iframe>
+        <canvas id="abHolo" aria-label="Holograma 3D de ARIA"></canvas>
+        <video id="abVideo" playsinline muted preload="none" style="display:none"></video>
+        <div class="ab-cards" id="abCards">
+          <div class="ab-card" style="--d:.1s"><b>Canales</b><span>WhatsApp, Telegram, web y voz</span></div>
+          <div class="ab-card" style="--d:.25s"><b>Agentes</b><span>Especialistas que trabajan en equipo</span></div>
+          <div class="ab-card" style="--d:.4s"><b>Memoria</b><span>Recuerda el contexto de cada cliente</span></div>
+          <div class="ab-card" style="--d:.55s"><b>Reportes</b><span>Informes y paneles automáticos</span></div>
+          <div class="ab-card" style="--d:.7s"><b>Automatizaciones</b><span>Tareas repetitivas, sin manos</span></div>
+          <div class="ab-card" style="--d:.85s"><b>Integraciones</b><span>Se conecta con tus sistemas</span></div>
+        </div>
+        <div class="ab-hint">Arrastra para girarla</div>
       </div>
     </div>
   </div>

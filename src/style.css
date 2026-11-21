@@ -353,3 +353,85 @@ canvas#gl.pointer { cursor: pointer; }
 .ab-end { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 18px 22px; border-radius: 20px; background: rgba(12,17,26,.72); backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.18); color: #fff; max-width: 90%; }
 .ab .x { top: 18px; right: 18px; border-radius: 50%; }
 @media (max-width: 900px) { .ab-head { padding: 18px 56px 12px 16px; } .ab-head h2 { font-size: 1.2rem; } .ab-box { height: 88vh; } }
+
+/* ===== ARIA: vaivén suave (sin animar labios) ===== */
+.aria-wrap { animation: ariaSway 7s ease-in-out infinite; }
+@keyframes ariaSway { 0%,100% { transform: translateX(-12px) translateY(0) rotate(-1.5deg); } 50% { transform: translateX(12px) translateY(-6px) rotate(1.5deg); } }
+.aria-face { transform: none !important; }
+.aria.notice .aria-wrap { animation-play-state: running; }
+
+/* ===== Ventana: holograma de ARIA ===== */
+.ab { background: rgba(4,8,14,.82); backdrop-filter: none; }
+.ab-box { background: rgba(10,14,22,.94); backdrop-filter: none; }
+.ab-stage { background: radial-gradient(ellipse at 50% 70%, #0b2236 0%, #04070c 70%); overflow: hidden; }
+#abHolo { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.ab-cards { position: absolute; inset: 0; pointer-events: none; display: grid; grid-template-columns: 1fr 1fr; align-content: center; padding: 0 4%; column-gap: 46%; row-gap: 18px; }
+.ab-card { padding: 12px 16px; border-radius: 16px; background: rgba(14,19,28,.55); backdrop-filter: blur(10px); border: 1px solid rgba(127,232,255,.28); box-shadow: 0 0 24px rgba(0,229,255,.12); opacity: 0; transform: translateY(10px); animation: abCard .7s var(--d, 0s) forwards; }
+.ab-card:nth-child(even) { text-align: right; }
+.ab-card b { display: block; font-family: var(--font-d); font-weight: 600; font-size: .98rem; color: #fff; }
+.ab-card span { font-size: .8rem; color: rgba(255,255,255,.75); }
+@keyframes abCard { to { opacity: 1; transform: none; } }
+.ab-hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-family: var(--font-m); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.5); pointer-events: none; }
+@media (max-width: 900px) {
+  .ab { padding: 0; }
+  .ab-box { width: 100%; height: 100%; border-radius: 0; }
+  .ab-cards { grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 8px; align-content: end; padding: 0 10px 44px; }
+  .ab-card { padding: 8px 10px; border-radius: 12px; }
+  .ab-card:nth-child(even) { text-align: left; }
+  .ab-card b { font-size: .82rem; } .ab-card span { font-size: .7rem; }
+  .ab-card:nth-child(n+5) { display: none; }
+}
+
+/* ===== Teléfonos ===== */
+.aria-chatbtn { display: none; }
+@media (max-width: 900px) {
+  #hud { padding: 10px 12px; }
+  .hud-tl { top: 12px; left: 12px; gap: 8px; }
+  .hud-tl img.brand-mark { width: 30px; height: 28px; }
+  .brand { font-size: .9rem; letter-spacing: .1em; }
+  .hud-tr { top: 10px; right: 10px; }
+  .hud-btns { gap: 5px; flex-wrap: nowrap; }
+  .hbtn { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 10px; }
+  .hbtn svg { width: 16px; height: 16px; }
+  body.journey #btnAbout { display: none; }
+
+  /* Capítulos: tarjeta compacta abajo, el chip arriba */
+  .chap, .chap:first-child, .chap.L { align-items: flex-end; justify-content: center; padding: 0 10px 14px; }
+  .chap-in, .chap-in.hero { width: 100%; max-width: 520px; padding: 16px 18px 18px; border-radius: 18px; }
+  .chap h2 { font-size: 1.45rem; margin: 6px 0 8px; }
+  .chap p { font-size: .9rem; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .chap .ey { font-size: .64rem; }
+  .mini, .chap .scrollhint { display: none; }
+  .chap .row { gap: 8px; }
+  .chap .btn-main, .chap .btn-ghost { padding: 10px 16px; font-size: .86rem; }
+  #progress { right: 4px; gap: 9px; }
+  #progress .dot { width: 7px; height: 7px; }
+
+  /* ARIA compacta: cara + subtítulo; el chat se abre con un botón */
+  .aria, .aria.pos-r { top: 58px; bottom: auto; left: 10px; right: auto; transform: none; flex-direction: row; align-items: flex-start; gap: 10px; transition: none; }
+  .aria-wrap, .aria-face { width: 56px; height: 56px; }
+  @keyframes ariaSway { 0%,100% { transform: translateX(-4px); } 50% { transform: translateX(4px); } }
+  .orb { display: none; }
+  .aria-face::after { display: none; }
+  .aria-bubble { width: calc(100vw - 92px); max-width: 420px; max-height: 46vh; padding: 9px 12px 10px; border-radius: 16px; margin: 0; }
+  .aria-bubble b { font-size: .58rem; }
+  .aria-head { margin-bottom: 4px; }
+  .aria-pill { font-size: .6rem; padding: 2px 7px; }
+  .aria-bubble p { font-size: .8rem; line-height: 1.4; min-height: 0; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .aria-chips, .aria-form, .aria-link, .tail { display: none; }
+  .aria-chatbtn { display: inline-block; font-family: var(--font-b); font-size: .6rem; font-weight: 600; color: #06121a; background: #7fe8ff; padding: 3px 8px; border-radius: 999px; }
+  .aria.chat .aria-bubble p { -webkit-line-clamp: 8; }
+  .aria.chat .aria-chips { display: flex; margin: 8px 0 6px; }
+  .aria.chat .aria-form { display: flex; margin: 0; }
+  .aria-phone { font-size: .86rem; padding: 6px 10px; margin-top: 6px; }
+  #ariaAct .aria-btn { margin-top: 6px; }
+  .tip { display: none; }
+  .panel { padding: 64px 18px 24px; }
+  .ab-head { padding: 14px 52px 10px 14px; }
+  .ab .x { top: 12px; right: 12px; }
+}
+.aria-typing { display: inline-flex; gap: 5px; padding: 6px 0; }
+.aria-typing i { width: 7px; height: 7px; border-radius: 50%; background: #7fe8ff; animation: ariaDot 1s infinite ease-in-out; }
+.aria-typing i:nth-child(2) { animation-delay: .15s; } .aria-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes ariaDot { 0%,80%,100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-4px); } }
+.aria-head { flex-wrap: wrap; }

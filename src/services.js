@@ -3,6 +3,7 @@ export const CONFIG = {
   phone: '+57 319 691 0228',
   tel: '+573196910228',
   whatsapp: '573196910228',
+  ariaApi: '', // URL del Worker de ARIA (Groq). Vacío = respuestas locales con voz grabada
   fragments: 12,
 };
 
