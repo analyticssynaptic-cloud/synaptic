@@ -1,2 +1,7 @@
 import { defineConfig } from 'vite';
-export default defineConfig({ base: './', build: { chunkSizeWarningLimit: 1200 } });
+// __BUILD__ cambia en cada publicación: evita que el navegador use audios/modelos viejos en caché
+export default defineConfig({
+  base: './',
+  define: { __BUILD__: JSON.stringify(Date.now().toString(36)) },
+  build: { chunkSizeWarningLimit: 1200 },
+});

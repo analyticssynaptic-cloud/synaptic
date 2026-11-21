@@ -4,7 +4,7 @@ const BASE = (import.meta.env.BASE_URL || './').replace(/\/?$/, '/');
 
 // Carga la malla compacta generada por tools/decimate.cjs
 async function loadBody() {
-  const buf = await (await fetch(BASE + 'aria/aria-body.bin')).arrayBuffer();
+  const buf = await (await fetch(BASE + 'aria/aria-body.bin?v=' + __BUILD__)).arrayBuffer();
   const dv = new DataView(buf);
   const nV = dv.getUint32(0, true), nI = dv.getUint32(4, true);
   const mn = [0, 1, 2].map((i) => dv.getFloat32(8 + i * 4, true)), mx = [0, 1, 2].map((i) => dv.getFloat32(20 + i * 4, true));

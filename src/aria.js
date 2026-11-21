@@ -39,7 +39,7 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
   const wrap = el.querySelector('.aria-wrap');
 
   let voiceOn = true; try { voiceOn = localStorage.getItem('synaptic.ariaVoice') !== '0'; } catch (e) { /* ok */ }
-  let man = null; const manReady = fetch(BASE + 'aria/voice/manifest.json').then((r) => r.json()).then((m) => (man = m)).catch(() => (man = {}));
+  let man = null; const manReady = fetch(BASE + 'aria/voice/manifest.json?v=' + __BUILD__).then((r) => r.json()).then((m) => (man = m)).catch(() => (man = {}));
 
   // ---------- Una sola salida de voz, analizada para mover la boca ----------
   const voiceEl = new Audio(); voiceEl.preload = 'auto';
@@ -99,7 +99,7 @@ export function createAria({ sfx, order, state, scroller, layerScreen, openConta
     cur = { id, entry, marks, onEnd }; wi = 0;
     hookAudio();
     if (sfx.ctx && sfx.ctx.state === 'suspended') sfx.ctx.resume();
-    voiceEl.src = `${BASE}aria/voice/${id}.mp3`;
+    voiceEl.src = `${BASE}aria/voice/${id}.mp3?v=${__BUILD__}`;
     voiceEl.currentTime = 0;
     try { await voiceEl.play(); } catch (e) { render(entry.text, true); onEnd && onEnd(); return; }
     speaking = true; el.classList.add('talking'); sfx.duck && sfx.duck(true);
