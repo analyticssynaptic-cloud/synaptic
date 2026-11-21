@@ -6,10 +6,10 @@
   <title>SYNAPTIC — Sincroniza tu empresa con el futuro</title>
   <meta name="description" content="Synaptic: empresa de tecnología. Experiencias web 3D, apps, inteligencia artificial, ciberseguridad, cloud, IoT y realidad aumentada. Explora nuestros servicios dentro del Animus." />
   <meta name="theme-color" content="#01030a" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2301030a'/%3E%3Cpath d='M44 20c-4-6-22-6-22 3 0 11 22 4 22 15 0 9-18 9-24 2' fill='none' stroke='%2300e5ff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>
   <canvas id="gl" aria-label="Escena 3D holográfica de Synaptic"></canvas>
@@ -19,13 +19,13 @@
   <!-- ===== ARRANQUE DEL ANIMUS ===== -->
   <section id="boot" aria-live="polite">
     <div class="boot-inner">
-      <svg class="boot-logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M44 18c-4-7-24-7-24 3 0 12 24 4 24 16 0 10-19 10-26 2" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/><circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 5"/></svg>
+      <img class="boot-logo" src="logo.png" alt="Synaptic" />
       <h1 class="glitch" data-text="SYNAPTIC">SYNAPTIC</h1>
       <p class="boot-sub">ANIMUS PROTOCOL · v4.2</p>
       <div class="ascii" id="ascii">-==++==---</div>
       <div class="boot-log" id="bootLog"></div>
       <div class="boot-bar"><i id="bootBar"></i></div>
-      <button id="start" class="btn-main" disabled>Inicializando…</button>
+      <button id="start" class="btn-main" disabled>Cargando…</button>
       <p class="boot-note">Se recomienda usar audífonos · Pantalla completa (F11)</p>
     </div>
   </section>
@@ -33,7 +33,7 @@
   <!-- ===== HUD ===== -->
   <div id="hud" class="hidden">
     <header class="hud-tl">
-      <svg viewBox="0 0 64 64" class="brand-mark" aria-hidden="true"><path d="M44 18c-4-7-24-7-24 3 0 12 24 4 24 16 0 10-19 10-26 2" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+      <img class="brand-mark" src="logo.png" alt="Synaptic" />
       <div>
         <b class="brand">SYNAPTIC</b>
         <small>ANIMUS PROTOCOL // SYNC ACTIVA</small>
@@ -104,6 +104,22 @@
     </div>
   </div>
 
+  <div id="aria" class="aria pos-l hidden" aria-live="polite">
+    <div class="aria-wrap">
+      <i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><i class="orb o4"></i>
+      <button class="aria-face" id="ariaFace" aria-label="Escuchar a ARIA">
+        <video id="ariaLoop" src="aria-loop.mp4" muted loop playsinline autoplay preload="auto"></video>
+        <video id="ariaTalk" src="aria-talk.mp4" muted loop playsinline preload="auto"></video>
+      </button>
+    </div>
+    <div class="aria-bubble" id="ariaBubble">
+      <span class="tail t1"></span><span class="tail t2"></span><span class="tail t3"></span>
+      <b>ARIA · asistente de Synaptic</b>
+      <p id="ariaText"></p>
+      <button id="ariaVoice" class="aria-btn">▶ Escuchar a ARIA</button>
+    </div>
+  </div>
+  <div id="tip" class="tip"><div class="tip-k"></div><div class="tip-t"></div><p></p><span class="tip-c">Clic para ver el detalle →</span></div>
   <div id="toast" class="toast"></div>
 
   <noscript><p style="color:#fff;padding:2rem;font-family:sans-serif">Synaptic necesita JavaScript y WebGL para mostrar la experiencia 3D.</p></noscript>

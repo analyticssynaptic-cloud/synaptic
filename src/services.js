@@ -1,7 +1,8 @@
 // Datos de Synaptic: servicios (los "Recuerdos" del Animus) y configuración
 export const CONFIG = {
-  email: 'contacto@synaptic.com', // <- cambia por el correo real de Synaptic
-  whatsapp: '', // ej: '573001234567'
+  phone: '+57 319 691 0228',
+  tel: '+573196910228',
+  whatsapp: '573196910228',
   fragments: 12,
 };
 
@@ -63,6 +64,16 @@ export const SERVICES = [
     stats: { Impacto: 95, Complejidad: 91, Velocidad: 68 },
   },
 ];
+
+export const HEADLINES = {
+  web: 'Sitios web que se sienten vivos.',
+  apps: 'Software y apps que escalan tu operación.',
+  ia: 'IA que trabaja a tu lado, todo el día.',
+  cyber: 'Seguridad que se anticipa al ataque.',
+  cloud: 'Infraestructura que escala sin fricción.',
+  iot: 'Lo físico, conectado y medible.',
+  arvr: 'Realidad aumentada que convence.',
+};
 
 export const RANKS = [
   { xp: 0, name: 'Iniciado' },

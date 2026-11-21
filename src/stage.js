@@ -7,20 +7,20 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { shared } from './hologram.js';
 
 const FinalShader = {
-  uniforms: { tDiffuse: { value: null }, uTime: shared.uTime, uGlitch: shared.uGlitch, uEagle: shared.uEagle },
+  uniforms: { tDiffuse: { value: null }, uTime: shared.uTime, uGlitch: shared.uGlitch, uEagle: shared.uEagle, uClean: shared.uClean },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTime,uGlitch,uEagle; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uTime,uGlitch,uEagle,uClean; varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
     void main(){
       vec2 uv = vUv; vec2 c = uv-0.5; float d = dot(c,c);
       float g = uGlitch * step(0.72, h(vec2(floor(uv.y*28.0), floor(uTime*14.0))));
       uv.x += g * 0.035 * (h(vec2(uTime, uv.y))-0.5) * 2.0;
-      float ab = 0.0016 + d*0.014 + uGlitch*0.012;
+      float ab = (0.0016 + d*0.014 + uGlitch*0.012) * mix(1.0, 0.35, uClean);
       vec3 col = vec3(texture2D(tDiffuse, uv + c*ab).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, uv - c*ab).b);
-      col *= 0.95 + 0.05*sin(uv.y*1000.0 + uTime*2.0);
+      col *= mix(0.95 + 0.05*sin(uv.y*1000.0 + uTime*2.0), 1.0, uClean);
       col *= 1.0 - d*1.25;
-      col += (h(uv*vec2(1920.0,1080.0) + uTime) - 0.5) * 0.028;
+      col += (h(uv*vec2(1920.0,1080.0) + uTime) - 0.5) * 0.028 * (1.0 - uClean*0.7);
       col = mix(col, col * vec3(1.12,1.0,0.8) + vec3(0.02,0.012,0.0), uEagle*0.5);
       gl_FragColor = vec4(col, 1.0);
     }`,

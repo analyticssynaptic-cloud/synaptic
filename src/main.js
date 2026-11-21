@@ -6,7 +6,7 @@ import { Game } from './game.js';
 import { Chip, EXP_Y } from './chip.js';
 import { Sfx } from './audio.js';
 import { shared } from './hologram.js';
-import { SERVICES, CONFIG, RANKS } from './services.js';
+import { SERVICES, CONFIG, RANKS, HEADLINES } from './services.js';
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#gl');
@@ -48,7 +48,7 @@ bootLines.forEach(([txt, cls], i) => {
     bootBar.style.width = `${((i + 1) / bootLines.length) * 100}%`;
     if (i === bootLines.length - 1) {
       startBtn.disabled = false;
-      startBtn.textContent = '▶ Sincronizar';
+      startBtn.textContent = 'Entrar';
     }
   }, 250 + i * 330);
 });
@@ -212,7 +212,7 @@ modal.addEventListener('pointerdown', (e) => { if (e.target === modal) closeModa
 function openAbout() {
   if (!state.started) return;
   showModal(`
-    <div class="eyebrow">// NÚCLEO · SYNAPTIC</div>
+    <div class="eyebrow">Sobre Synaptic</div>
     <h2>Sincronizamos tu empresa con el futuro</h2>
     <p>Synaptic es una empresa de tecnología que construye producto digital, inteligencia artificial y experiencias inmersivas. Conectamos ideas con ingeniería —como las neuronas de una sinapsis— para que tu negocio responda más rápido, se vea extraordinario y escale sin límites.</p>
     <div class="kpis">
@@ -222,6 +222,7 @@ function openAbout() {
       <div class="kpi"><b>100%</b><span>A tu medida</span></div>
     </div>
     <p>Trabajamos por misiones: entendemos tu objetivo, diseñamos la arquitectura, construimos en ciclos cortos y operamos contigo después del lanzamiento.</p>
+    <video class="about-video" src="synaptic-datos-ia.mp4" controls playsinline preload="none"></video>
     <div class="actions"><button class="btn-main" id="aboutCta">Iniciar misión →</button><button class="btn-ghost" id="aboutReset">Reiniciar progreso</button></div>
   `);
   $('#aboutCta').onclick = () => openContact(-1);
@@ -232,29 +233,27 @@ function openContact(idx) {
   if (!state.started) return;
   if (state.modal) closeModal();
   const opts = SERVICES.map((s, i) => `<option value="${s.name}" ${i === idx ? 'selected' : ''}>${s.name}</option>`).join('');
+  const wa = (txt) => `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(txt)}`;
   showModal(`
-    <div class="eyebrow">// NUEVA MISIÓN</div>
-    <h2>Cuéntanos tu proyecto</h2>
-    <p>Elige el servicio, descríbenos tu objetivo y te respondemos con una propuesta.</p>
+    <div class="eyebrow">Contacto</div>
+    <h2>Hablemos de tu proyecto</h2>
+    <p>Escríbenos por WhatsApp o llámanos al <b>${CONFIG.phone}</b>. Te respondemos el mismo día.</p>
+    <div class="actions">
+      <a class="btn-main" target="_blank" rel="noopener" href="${wa('Hola Synaptic, quiero cotizar un proyecto.')}">Escribir por WhatsApp</a>
+      <a class="btn-ghost" href="tel:${CONFIG.tel}">Llamar ${CONFIG.phone}</a>
+    </div>
     <form id="cForm">
-      <div class="row">
-        <label>NOMBRE<input name="n" required autocomplete="name" placeholder="Tu nombre" /></label>
-        <label>CORREO<input name="e" type="email" required autocomplete="email" placeholder="tu@correo.com" /></label>
-      </div>
+      <label>NOMBRE<input name="n" required autocomplete="name" placeholder="Tu nombre" /></label>
       <label>SERVICIO<select name="s">${opts}<option>Otro / No estoy seguro</option></select></label>
       <label>MENSAJE<textarea name="m" required placeholder="¿Qué quieres construir?"></textarea></label>
-      <div class="actions">
-        <button class="btn-main" type="submit">Enviar misión ✦</button>
-        ${CONFIG.whatsapp ? `<a class="btn-ghost" target="_blank" rel="noopener" href="https://wa.me/${CONFIG.whatsapp}">WhatsApp</a>` : ''}
-      </div>
+      <div class="actions"><button class="btn-main" type="submit">Enviar por WhatsApp</button></div>
     </form>
   `);
   $('#cForm').onsubmit = (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
-    const body = `Nombre: ${f.get('n')}\nCorreo: ${f.get('e')}\nServicio: ${f.get('s')}\n\n${f.get('m')}`;
-    location.href = `mailto:${CONFIG.email}?subject=${encodeURIComponent('Nueva misión Synaptic · ' + f.get('s'))}&body=${encodeURIComponent(body)}`;
-    toast('Abriendo tu correo…');
+    window.open(wa(`Hola Synaptic, soy ${f.get('n')}. Me interesa: ${f.get('s')}.\n\n${f.get('m')}`), '_blank', 'noopener');
+    toast('Abriendo WhatsApp…');
   };
 }
 
@@ -319,12 +318,16 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 canvas.addEventListener('pointermove', (e) => {
   ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  mouse.x = e.clientX; mouse.y = e.clientY;
   stage.rig.parallax.set(ndc.x, ndc.y);
   pointerDirty = true;
   if (drag) {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
-    if (state.focus < 0 && !state.modal) {
+    if (state.mode === 'journey') {
+      if (e.pointerType === 'touch') scroller.scrollTop -= dy * 1.6;
+      else if (!state.modal) { orbit.th -= dx * 0.006; orbit.ph = THREE.MathUtils.clamp(orbit.ph + dy * 0.004, -0.5, 0.6); }
+    } else if (state.focus < 0 && !state.modal) {
       stage.rig.goal.theta -= dx * 0.0055;
       stage.rig.goal.phi = THREE.MathUtils.clamp(stage.rig.goal.phi + dy * 0.0045, -0.05, 1.25);
     }
@@ -336,6 +339,7 @@ canvas.addEventListener('pointerup', (e) => {
   drag = null;
   if (!wasClick || !state.started || state.modal) return;
   ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  if (state.mode === 'journey') { if (hoverLayer >= 0) { sfx.init(); sfx.click(); openDetail(order[hoverLayer]); } return; }
   const h = pick();
   if (!h) return;
   sfx.init();
@@ -344,7 +348,9 @@ canvas.addEventListener('pointerup', (e) => {
   else if (h.type === 'fragment') collect(h.index);
 });
 canvas.addEventListener('wheel', (e) => {
-  if (state.focus >= 0 || state.modal) return;
+  if (state.modal) return;
+  if (state.mode === 'journey') { e.preventDefault(); scroller.scrollTop += e.deltaY; return; }
+  if (state.focus >= 0) return;
   e.preventDefault();
   stage.rig.goal.radius = THREE.MathUtils.clamp(stage.rig.goal.radius + e.deltaY * 0.02, 14, 50);
   state.idle = 0;
@@ -369,6 +375,8 @@ addEventListener('keydown', (e) => {
   if (e.target.matches && e.target.matches('input,textarea,select')) { if (e.key === 'Escape') closeModal(); return; }
   const k = e.key.toLowerCase();
   if (k === 'escape') { if (state.modal) closeModal(); else closePanel(); }
+  else if (state.mode === 'journey' && ['arrowdown', 'pagedown', ' '].includes(k)) { e.preventDefault(); scroller.scrollBy({ top: innerHeight * 0.7, behavior: 'smooth' }); }
+  else if (state.mode === 'journey' && ['arrowup', 'pageup'].includes(k)) { e.preventDefault(); scroller.scrollBy({ top: -innerHeight * 0.7, behavior: 'smooth' }); }
   else if (k === 'e') setEagle(!state.eagle);
   else if (k === 'm') $('#btnMute').click();
   else if (/^[1-7]$/.test(k)) openNode(+k - 1);
@@ -453,14 +461,14 @@ const chapters = [];
     story.appendChild(sec);
     chapters.push(sec.firstElementChild);
   };
-  mk('hero', '#7fe8ff', `<div class="ey">// SYNAPTIC · ANATOMÍA DE UN CHIP</div><h2>Descomponemos la tecnología para construir tu futuro.</h2><p>Siete capas. Siete servicios. Desliza y mira cómo se despliega por dentro.</p><div class="scrollhint">▼ DESLIZA PARA DESCOMPONER</div>`, 'L');
+  mk('hero', '#7fe8ff', `<div class="ey">SYNAPTIC · INGENIERÍA DIGITAL</div><h2>Ingeniería digital, desde el silicio.</h2><p>Diseñamos software, inteligencia artificial e infraestructura para empresas que quieren ir más rápido. Desliza, gira el chip con el mouse y pasa el cursor por cada pieza.</p><div class="scrollhint">DESLIZA PARA DESCOMPONER ↓</div>`, 'L');
   order.forEach((si, k) => {
     const s = SERVICES[si];
     mk('', s.color,
-      `<div class="ey">CAPA ${String(k + 1).padStart(2, '0')}/07 · ${LAYER_NAME[k].toUpperCase()}</div><h2>${s.name}</h2><p>${s.tagline} ${s.desc.split('. ')[0]}.</p><ul class="mini">${s.items.slice(0, 3).map((t) => `<li>${t}</li>`).join('')}</ul><div class="row"><button class="btn-main" data-detail="${si}" style="background:${s.color}">Ver detalle</button><button class="btn-ghost" data-contact="${si}">Cotizar</button></div>`,
+      `<div class="ey">${String(k + 1).padStart(2, '0')} — ${s.name}</div><h2>${HEADLINES[s.id]}</h2><p>${s.tagline} ${s.desc.split('. ')[0]}.</p><ul class="mini">${s.items.slice(0, 3).map((t) => `<li>${t}</li>`).join('')}</ul><div class="row"><button class="btn-main" data-detail="${si}" style="background:${s.color}">Ver detalle</button><button class="btn-ghost" data-contact="${si}">Cotizar</button></div>`,
       k % 2 ? 'L' : '');
   });
-  mk('hero', '#ffc83d', `<div class="ey">// ENSAMBLAJE COMPLETO</div><h2>El siguiente chip es tu proyecto.</h2><p>Cuéntanos qué quieres construir, o entra al modo libre y explora el Animus.</p><div class="row"><button class="btn-main" data-contact="-1">Iniciar misión →</button><button class="btn-ghost" data-free="1">Explorar en modo libre</button></div>`, 'L');
+  mk('hero', '#ffc83d', `<div class="ey">HABLEMOS</div><h2>Construyamos tu próximo sistema.</h2><p>Cuéntanos tu proyecto y te respondemos hoy. WhatsApp y llamadas: ${CONFIG.phone}.</p><div class="row"><button class="btn-main" data-contact="-1">Escribir por WhatsApp</button><button class="btn-ghost" data-free="1">Explorar en modo juego</button></div>`, 'L');
 }
 // Navegación por puntos
 progressEl.innerHTML = '';
@@ -546,6 +554,82 @@ function updateAnnot(x, t) {
   aCta2.setAttribute('x1', bx); aCta2.setAttribute('x2', bx + 190); aCta2.setAttribute('y1', by + 24); aCta2.setAttribute('y2', by + 24);
 }
 
+const orbit = { th: 0, ph: 0 }, mouse = { x: 0, y: 0 };
+const tip = $('#tip');
+let hoverLayer = -1;
+function fillTip(l) {
+  const s = SERVICES[order[l]];
+  tip.style.setProperty('--c', s.color);
+  tip.querySelector('.tip-k').textContent = `${String(l + 1).padStart(2, '0')} / ${LAYER_NAME[l]}`;
+  tip.querySelector('.tip-t').textContent = s.name;
+  tip.querySelector('p').textContent = `${s.tagline} ${s.desc.split('. ')[0]}.`;
+}
+function hoverChip() {
+  raycaster.setFromCamera(ndc, stage.camera);
+  const l = chip.e > 0.15 && ndc.x < 5 ? chip.pick(raycaster) : -1;
+  if (l !== hoverLayer) {
+    hoverLayer = l; chip.setHover(l);
+    canvas.classList.toggle('pointer', l >= 0);
+    if (l >= 0) { sfx.hoverTri(); fillTip(l); }
+  }
+  const show = l >= 0 && !state.modal && !panel.classList.contains('open');
+  tip.classList.toggle('on', show);
+  if (show) {
+    const w = tip.offsetWidth || 290, h = tip.offsetHeight || 150;
+    tip.style.transform = `translate(${Math.min(mouse.x + 22, innerWidth - w - 14)}px, ${Math.min(Math.max(mouse.y - h / 2, 70), innerHeight - h - 14)}px)`;
+  }
+}
+
+// ARIA: guía narradora con globitos
+const ARIA_LINES = [
+  'Hola, soy ARIA, la asistente inteligente de Synaptic. Desliza y te muestro cómo se construye la tecnología por dentro.',
+  'Arriba va el blindaje: protegemos tu infraestructura antes de que llegue el ataque.',
+  'El calor lo disipa la nube: arquitectura que escala sin caerse.',
+  'El cristal es tu cara al mundo: experiencias web 3D que se sienten vivas.',
+  'Aquí vivo yo, en el silicio: IA y agentes que trabajan contigo las 24 horas.',
+  'Proyectamos tu producto en realidad aumentada para que lo recorran antes de comprarlo.',
+  'La placa conecta lo físico con los datos: sensores, dispositivos y control remoto.',
+  'Y la base sostiene todo: software y apps a la medida de tu operación.',
+  `¿Listo? Escríbenos al WhatsApp ${CONFIG.phone} y armamos tu proyecto.`,
+];
+const ariaEl = $('#aria'), ariaText = $('#ariaText'), ariaBubble = $('#ariaBubble'), ariaLoop = $('#ariaLoop'), ariaTalk = $('#ariaTalk'), ariaBtn = $('#ariaVoice');
+let ariaTimer = 0, ariaIdx = -1, ariaSpeaking = false, ariaAudio = null, ariaWords = null;
+function ariaSay(idx) {
+  if (ariaSpeaking || idx === ariaIdx) return;
+  ariaIdx = idx;
+  const txt = ARIA_LINES[Math.max(0, Math.min(ARIA_LINES.length - 1, idx))];
+  // Opuesta al texto: capítulos pares a la izquierda del chip → Aria a la izquierda
+  const textLeft = idx === 0 || idx === ARIA_LINES.length - 1 || (idx - 1) % 2 === 1;
+  ariaEl.classList.toggle('pos-r', textLeft);
+  ariaEl.classList.toggle('pos-l', !textLeft);
+  ariaBubble.classList.remove('pop'); void ariaBubble.offsetWidth; ariaBubble.classList.add('pop');
+  clearInterval(ariaTimer);
+  let n = 0; ariaText.textContent = '';
+  ariaTimer = setInterval(() => { n += 2; ariaText.textContent = txt.slice(0, n); if (n >= txt.length) clearInterval(ariaTimer); }, 22);
+}
+function ariaSetTalking(on) {
+  ariaTalk.style.opacity = on ? 1 : 0;
+  ariaEl.classList.toggle('talking', on);
+  if (on) { ariaTalk.currentTime = 0; ariaTalk.play().catch(() => {}); } else ariaTalk.pause();
+}
+async function ariaToggleVoice() {
+  sfx.init();
+  if (ariaSpeaking) { ariaAudio.pause(); ariaStopVoice(); return; }
+  if (!ariaWords) { try { ariaWords = await (await fetch('aria-voz.json')).json(); } catch (e) { ariaWords = []; } }
+  ariaAudio = new Audio('aria-voz.mp3');
+  ariaSpeaking = true; ariaBtn.textContent = '■ Detener'; clearInterval(ariaTimer);
+  ariaSetTalking(true);
+  ariaAudio.ontimeupdate = () => { const ct = ariaAudio.currentTime; ariaText.textContent = ariaWords.filter((w) => w[0] <= ct).map((w) => w[2]).join(' '); };
+  ariaAudio.onended = ariaStopVoice;
+  ariaAudio.play().catch(ariaStopVoice);
+}
+function ariaStopVoice() {
+  ariaSpeaking = false; ariaBtn.textContent = '▶ Escuchar a ARIA'; ariaSetTalking(false);
+  const i = ariaIdx; ariaIdx = -1; ariaSay(Math.max(0, i));
+}
+ariaBtn.onclick = ariaToggleVoice;
+$('#ariaFace').onclick = ariaToggleVoice;
+
 let smoothP = 0, introT = 0, prevP = 0, lastNear = -1;
 function journeyCam(dt, t) {
   const max = scroller.scrollHeight - scroller.clientHeight;
@@ -557,9 +641,10 @@ function journeyCam(dt, t) {
   const a = S[i], b = S[i + 1], g = stage.rig.goal;
   const d = Math.atan2(Math.sin(b.theta - a.theta), Math.cos(b.theta - a.theta));
   let th = a.theta + d * f + Math.sin(t * 0.25) * 0.04;
-  th += Math.round((g.theta - th) / (Math.PI * 2)) * Math.PI * 2;
-  g.theta = th;
-  g.phi = a.phi + (b.phi - a.phi) * f;
+  th += Math.round((g.theta - orbit.th - th) / (Math.PI * 2)) * Math.PI * 2;
+  if (!drag) { orbit.th *= Math.exp(-dt * 0.3); orbit.ph *= Math.exp(-dt * 0.3); }
+  g.theta = th + orbit.th;
+  g.phi = a.phi + (b.phi - a.phi) * f + orbit.ph;
   g.radius = a.radius + (b.radius - a.radius) * f;
   g.tx = a.tx + (b.tx - a.tx) * f; g.ty = a.ty + (b.ty - a.ty) * f; g.tz = a.tz + (b.tz - a.tz) * f;
   // Entrada cinematográfica
@@ -570,7 +655,7 @@ function journeyCam(dt, t) {
   chapters.forEach((c, k) => c.style.setProperty('--o', Math.max(0, Math.min(1, 1.15 - Math.abs(x - k) * 2.1)).toFixed(3)));
   const near = Math.round(x);
   [...progressEl.children].forEach((d, k) => d.classList.toggle('on', k === near));
-  if (near !== lastNear && Math.abs(x - near) < 0.2) { if (lastNear >= 0) sfx.lock(); lastNear = near; }
+  if (near !== lastNear && Math.abs(x - near) < 0.2) { if (lastNear >= 0) sfx.lock(); lastNear = near; ariaSay(near); }
   if (near >= 1 && near <= order.length && Math.abs(x - near) < 0.12 && !game.visited.has(order[near - 1])) {
     const up = game.visit(order[near - 1]); refreshHud(up); toast(`+100 XP · ${SERVICES[order[near - 1]].name} sincronizado`);
   }
@@ -584,8 +669,12 @@ function setMode(m) {
   progressEl.classList.toggle('hidden', !journey);
   labelsEl.classList.toggle('off', journey);
   document.body.classList.toggle('journey', journey);
+  shared.uClean.value = journey ? 1 : 0;
+  if (!journey) tip.classList.remove('on');
   $('#modeLbl').textContent = journey ? 'Modo Libre' : 'Viaje';
   chip.group.visible = journey;
+  ariaEl.classList.toggle('hidden', !journey);
+  if (journey) { ariaIdx = -1; ariaSay(0); }
   annot.style.display = journey ? '' : 'none';
   sfx.cyberOff = !journey && false;
   world.root.visible = !journey;
@@ -644,7 +733,10 @@ function frame(now) {
   }
 
   // Hover
-  if (pointerDirty && state.started && !drag && !state.modal) {
+  if (state.mode === 'journey') {
+    if (state.started && !drag && !state.modal) hoverChip(); else tip.classList.remove('on');
+    pointerDirty = false;
+  } else if (pointerDirty && state.started && !drag && !state.modal) {
     pointerDirty = false;
     const h = state.focus < 0 || state.eagle ? pick() : null;
     const key = h ? h.type + (h.index ?? '') : '';

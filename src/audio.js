@@ -1,117 +1,111 @@
-// Audio procedural con WebAudio (sin archivos externos)
+// Audio procedural moderno (WebAudio): pad ambiental suave, clics de cristal y barridos de aire
 export class Sfx {
-  constructor() { this.ctx = null; this.muted = false; this.master = null; }
+  constructor() { this.ctx = null; this.muted = false; this.master = null; this.cyberOff = false; }
 
   init() {
     if (this.ctx) return;
     const C = window.AudioContext || window.webkitAudioContext;
     if (!C) return;
-    this.ctx = new C();
-    this.master = this.ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : 0.8;
-    this.master.connect(this.ctx.destination);
-    this._drone();
-    this.startCyber();
+    const c = (this.ctx = new C());
+    this.master = c.createGain();
+    this.master.gain.value = this.muted ? 0 : 0.9;
+    const comp = c.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.ratio.value = 3;
+    this.master.connect(comp); comp.connect(c.destination);
+    // Reverb sintética (cola de ruido con decaimiento)
+    const len = c.sampleRate * 2.6, ir = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
+    this.verb = c.createConvolver(); this.verb.buffer = ir;
+    this.verbG = c.createGain(); this.verbG.gain.value = 0.55;
+    this.verb.connect(this.verbG); this.verbG.connect(this.master);
+    this._pad();
+    this._air();
   }
 
-  _drone() {
+  _pad() {
     const c = this.ctx;
-    const out = c.createGain(); out.gain.value = 0.0; out.connect(this.master);
-    out.gain.linearRampToValueAtTime(0.09, c.currentTime + 4);
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 6; lp.connect(out);
-    [55, 55.4, 82.4, 110.3].forEach((f, i) => {
-      const o = c.createOscillator(); o.type = i % 2 ? 'sawtooth' : 'triangle'; o.frequency.value = f;
-      const g = c.createGain(); g.gain.value = i < 2 ? 0.5 : 0.22;
+    const out = c.createGain(); out.gain.value = 0;
+    out.gain.linearRampToValueAtTime(0.055, c.currentTime + 5);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; lp.Q.value = 0.7;
+    lp.connect(out); out.connect(this.master); out.connect(this.verb);
+    // Acorde maj9 abierto: re-mi-la-si
+    [73.4, 110, 164.8, 220, 329.6].forEach((f, i) => {
+      const o = c.createOscillator(); o.type = i % 2 ? 'sine' : 'triangle'; o.frequency.value = f; o.detune.value = (i - 2) * 4;
+      const g = c.createGain(); g.gain.value = i < 2 ? 0.5 : 0.28;
       o.connect(g); g.connect(lp); o.start();
     });
-    const lfo = c.createOscillator(); lfo.frequency.value = 0.07;
-    const lg = c.createGain(); lg.gain.value = 220; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
-    this.droneFilter = lp;
+    const lfo = c.createOscillator(); lfo.frequency.value = 0.05;
+    const lg = c.createGain(); lg.gain.value = 260; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
+  }
+
+  // Aire suave ligado al desplazamiento
+  _air() {
+    const c = this.ctx;
+    const buf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource(); src.buffer = buf; src.loop = true;
+    this.whirF = c.createBiquadFilter(); this.whirF.type = 'lowpass'; this.whirF.frequency.value = 500; this.whirF.Q.value = 0.5;
+    this.whirG = c.createGain(); this.whirG.gain.value = 0;
+    src.connect(this.whirF); this.whirF.connect(this.whirG); this.whirG.connect(this.master); this.whirG.connect(this.verb); src.start();
   }
 
   setMuted(m) {
     this.muted = m;
-    if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.8, this.ctx.currentTime, 0.05);
+    if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.9, this.ctx.currentTime, 0.05);
   }
 
-  _tone({ f = 880, f2, dur = 0.12, type = 'sine', vol = 0.15, delay = 0 }) {
+  setWhir(v) {
+    if (!this.whirG || this.muted) return;
+    const t = this.ctx.currentTime;
+    this.whirG.gain.setTargetAtTime(Math.min(v * 0.06, 0.05), t, 0.1);
+    this.whirF.frequency.setTargetAtTime(400 + v * 2400, t, 0.1);
+  }
+
+  _tone({ f = 880, f2, dur = 0.2, type = 'sine', vol = 0.1, delay = 0, rev = 0.5, attack = 0.008 }) {
     if (!this.ctx || this.muted) return;
     const c = this.ctx, t = c.currentTime + delay;
     const o = c.createOscillator(), g = c.createGain();
     o.type = type; o.frequency.setValueAtTime(f, t);
     if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(vol, t + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
+    o.connect(g); g.connect(this.master);
+    if (rev > 0) { const s = c.createGain(); s.gain.value = rev; g.connect(s); s.connect(this.verb); }
+    o.start(t); o.stop(t + dur + 0.05);
   }
 
-  _noise({ dur = 0.6, from = 300, to = 4000, vol = 0.12 }) {
+  _swoosh({ dur = 0.7, from = 300, to = 2600, vol = 0.07, delay = 0 }) {
     if (!this.ctx || this.muted) return;
-    const c = this.ctx, t = c.currentTime;
+    const c = this.ctx, t = c.currentTime + delay;
     const buf = c.createBuffer(1, c.sampleRate * dur, c.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     const s = c.createBufferSource(); s.buffer = buf;
-    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 3;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2;
     bp.frequency.setValueAtTime(from, t); bp.frequency.exponentialRampToValueAtTime(to, t + dur);
-    const g = c.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(bp); bp.connect(g); g.connect(this.master); s.start(t);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(bp); bp.connect(g); g.connect(this.master); g.connect(this.verb); s.start(t);
   }
 
-  hover() { this._tone({ f: 1200, f2: 1800, dur: 0.07, type: 'sine', vol: 0.06 }); }
-  click() { this._tone({ f: 300, f2: 900, dur: 0.18, type: 'square', vol: 0.07 }); }
-  open() { this._noise({ dur: 0.9, from: 200, to: 5000, vol: 0.16 }); this._tone({ f: 110, f2: 440, dur: 0.8, type: 'sawtooth', vol: 0.08 }); }
-  close() { this._noise({ dur: 0.5, from: 4000, to: 300, vol: 0.1 }); }
-  collect() { [660, 880, 1320, 1760].forEach((f, i) => this._tone({ f, dur: 0.22, type: 'triangle', vol: 0.11, delay: i * 0.07 })); }
-  eagle(on) { this._noise({ dur: 1.1, from: on ? 200 : 3000, to: on ? 3500 : 200, vol: 0.14 }); this._tone({ f: on ? 220 : 880, f2: on ? 880 : 220, dur: 0.6, type: 'sine', vol: 0.09 }); }
-  boot() { [440, 660, 880].forEach((f, i) => this._tone({ f, dur: 0.15, type: 'square', vol: 0.05, delay: i * 0.09 })); }
-  // --- Capa cibernética: pulsos de datos aleatorios + zumbido servo ligado al scroll ---
-  startCyber() {
-    if (!this.ctx || this._cyber) return;
-    this._cyber = true;
-    const c = this.ctx;
-    // Zumbido servo (ruido filtrado)
-    const buf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    const src = c.createBufferSource(); src.buffer = buf; src.loop = true;
-    this.whirF = c.createBiquadFilter(); this.whirF.type = 'bandpass'; this.whirF.Q.value = 7; this.whirF.frequency.value = 400;
-    this.whirG = c.createGain(); this.whirG.gain.value = 0;
-    src.connect(this.whirF); this.whirF.connect(this.whirG); this.whirG.connect(this.master); src.start();
-    // Pulsos de datos
-    const scale = [880, 1046, 1318, 1568, 1760, 2093, 2637];
-    const tick = () => {
-      if (!this._cyber) return;
-      if (!this.muted && !this.cyberOff) {
-        const f = scale[(Math.random() * scale.length) | 0];
-        const burst = Math.random() < 0.25;
-        const n = burst ? 5 + ((Math.random() * 4) | 0) : 1;
-        const pan = c.createStereoPanner ? c.createStereoPanner() : null;
-        if (pan) { pan.pan.value = Math.random() * 2 - 1; pan.connect(this.master); }
-        for (let i = 0; i < n; i++) {
-          const t = c.currentTime + i * 0.045, o = c.createOscillator(), g = c.createGain();
-          o.type = Math.random() < 0.5 ? 'square' : 'triangle';
-          o.frequency.setValueAtTime(f * (burst ? 1 + (i % 3) * 0.25 : 1), t);
-          g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(burst ? 0.018 : 0.03, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
-          o.connect(g); g.connect(pan || this.master); o.start(t); o.stop(t + 0.09);
-        }
-      }
-      setTimeout(tick, 350 + Math.random() * 1500);
-    };
-    tick();
+  // Pluck de cristal: pentatónica suave
+  _pluck(f, vol = 0.07, delay = 0) {
+    this._tone({ f, dur: 0.5, type: 'sine', vol, delay, rev: 0.8, attack: 0.004 });
+    this._tone({ f: f * 2.01, dur: 0.25, type: 'sine', vol: vol * 0.35, delay, rev: 0.6, attack: 0.004 });
   }
 
-  setWhir(v) {
-    if (!this.whirG || this.muted) return;
-    const t = this.ctx.currentTime;
-    this.whirG.gain.setTargetAtTime(Math.min(v * 0.1, 0.07), t, 0.08);
-    this.whirF.frequency.setTargetAtTime(280 + v * 2600, t, 0.08);
+  hover() { this._pluck(1568, 0.035); }
+  hoverTri() {
+    const n = [659, 784, 988, 1175, 1319][(Math.random() * 5) | 0];
+    this._pluck(n, 0.06);
+    this._swoosh({ dur: 0.35, from: 2000, to: 6000, vol: 0.025 });
   }
-
-  lock() {
-    this._tone({ f: 520, f2: 1040, dur: 0.12, type: 'square', vol: 0.06 });
-    this._tone({ f: 1560, dur: 0.18, type: 'triangle', vol: 0.05, delay: 0.1 });
-    this._noise({ dur: 0.35, from: 6000, to: 800, vol: 0.07 });
-  }
-
-  rank() { [523, 659, 784, 1046, 1318].forEach((f, i) => this._tone({ f, dur: 0.35, type: 'triangle', vol: 0.12, delay: i * 0.1 })); }
+  click() { this._tone({ f: 240, f2: 120, dur: 0.14, type: 'sine', vol: 0.16, rev: 0.25 }); this._pluck(1175, 0.05, 0.02); }
+  open() { this._swoosh({ dur: 0.8, from: 250, to: 3200, vol: 0.09 }); this._pluck(880, 0.05, 0.3); this._pluck(1319, 0.04, 0.4); }
+  close() { this._swoosh({ dur: 0.5, from: 3000, to: 250, vol: 0.06 }); }
+  lock() { this._pluck(988, 0.06); this._pluck(1480, 0.045, 0.09); }
+  collect() { [880, 1175, 1568, 1976].forEach((f, i) => this._pluck(f, 0.06, i * 0.07)); }
+  eagle(on) { this._swoosh({ dur: 1.0, from: on ? 200 : 3500, to: on ? 3500 : 200, vol: 0.09 }); this._tone({ f: on ? 196 : 392, f2: on ? 392 : 196, dur: 0.7, vol: 0.07 }); }
+  boot() { [523, 784, 1175].forEach((f, i) => this._pluck(f, 0.06, i * 0.1)); this._swoosh({ dur: 1.4, from: 200, to: 2800, vol: 0.08 }); }
+  rank() { [659, 784, 988, 1319, 1760].forEach((f, i) => this._pluck(f, 0.07, i * 0.1)); }
 }

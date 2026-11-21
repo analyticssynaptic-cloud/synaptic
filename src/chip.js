@@ -111,12 +111,12 @@ export class Chip {
     this.group = new THREE.Group();
     this.group.visible = false;
     scene.add(this.group);
-    this.e = 0; this.x = 0; this.layers = [];
+    this.e = 0; this.x = 0; this.layers = []; this.pickMeshes = []; this.hoverIdx = -1;
 
     // Reflejos de estudio para metal y cristal
     const pm = new THREE.PMREMGenerator(renderer);
     scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environmentIntensity = 1.2;
+    scene.environmentIntensity = 0.9;
     pm.dispose();
     scene.fog = new THREE.FogExp2(new THREE.Color().setRGB(0.1, 0.116, 0.143, THREE.LinearSRGBColorSpace), 0.026);
 
@@ -130,6 +130,16 @@ export class Chip {
     this._dust();
     this._smoke();
     this._shards();
+    this._logo();
+  }
+
+  _logo() {
+    const tex = new THREE.TextureLoader().load((import.meta.env.BASE_URL || './') + 'logo.png');
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.logo = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, toneMapped: false }));
+    this.logo.scale.set(6.6, 6, 1);
+    this.logo.position.set(0, 6.2, 0);
+    this.group.add(this.logo);
   }
 
   _lights() {
@@ -169,10 +179,45 @@ export class Chip {
       steelDark: new THREE.MeshStandardMaterial({ color: 0x8e99a6, metalness: 1, roughness: 0.55, roughnessMap: brushed, envMapIntensity: 1.1 }),
       copper: new THREE.MeshStandardMaterial({ color: 0xc27a45, metalness: 1, roughness: 0.28, envMapIntensity: 1.4 }),
       gold: new THREE.MeshStandardMaterial({ color: 0xe0ad4a, metalness: 1, roughness: 0.25, envMapIntensity: 1.4 }),
-      glass: new THREE.MeshPhysicalMaterial({ color: 0xbfeaf0, metalness: 0, roughness: 0.04, transparent: true, opacity: 0.16, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
+      glass: new THREE.MeshPhysicalMaterial({ color: 0x7fb4c6, metalness: 0, roughness: 0.08, transparent: true, opacity: 0.12, clearcoat: 0.4, clearcoatRoughness: 0.1, envMapIntensity: 0.4, side: THREE.DoubleSide, depthWrite: false }),
       dark: new THREE.MeshStandardMaterial({ color: 0x10171e, metalness: 0.6, roughness: 0.45 }),
       glow: new THREE.MeshBasicMaterial({ color: 0x55e6ff, toneMapped: false }),
     };
+  }
+
+  _triOverlay(w, d, color, seed) {
+    const r = mulberry(seed * 37 + 5), N = 11, V = [];
+    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+      const edge = i === 0 || j === 0 || i === N || j === N;
+      V.push([(i / N - 0.5) * w + (edge ? 0 : (r() - 0.5) * (w / N) * 0.8), (j / N - 0.5) * d + (edge ? 0 : (r() - 0.5) * (d / N) * 0.8)]);
+    }
+    const pos = [], bary = [], rnd = [];
+    const push = (a, b, c) => {
+      const q = r();
+      for (const [k, p] of [a, b, c].entries()) { pos.push(p[0], 0, p[1]); bary.push(k === 0 ? 1 : 0, k === 1 ? 1 : 0, k === 2 ? 1 : 0); rnd.push(q); }
+    };
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const a = V[j * (N + 1) + i], b = V[j * (N + 1) + i + 1], c = V[(j + 1) * (N + 1) + i], e = V[(j + 1) * (N + 1) + i + 1];
+      if (r() < 0.5) { push(a, b, c); push(b, e, c); } else { push(a, b, e); push(a, e, c); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('aBary', new THREE.Float32BufferAttribute(bary, 3));
+    g.setAttribute('aRand', new THREE.Float32BufferAttribute(rnd, 1));
+    const m = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      uniforms: { uTime: shared.uTime, uH: { value: 0 }, uColor: { value: new THREE.Color(color) } },
+      vertexShader: 'attribute vec3 aBary; attribute float aRand; varying vec3 vB; varying float vR; varying vec2 vP; void main(){ vB=aBary; vR=aRand; vP=position.xz; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+      fragmentShader: `uniform float uTime,uH; uniform vec3 uColor; varying vec3 vB; varying float vR; varying vec2 vP;
+        void main(){
+          float edge = 1.0 - smoothstep(0.0, 0.06, min(min(vB.x,vB.y),vB.z));
+          float wave = 0.5 + 0.5*sin(uTime*2.2 + vR*6.283 + length(vP)*0.9);
+          float face = 0.16 + vR*0.32 + wave*vR*0.5;
+          vec3 col = mix(uColor*1.25, vec3(1.0), edge*0.75);
+          gl_FragColor = vec4(col, uH*clamp(edge*0.95 + face, 0.0, 1.0));
+        }`,
+    });
+    return { g, m };
   }
 
   _layerWrap(i, g, w, d, color) {
@@ -188,8 +233,16 @@ export class Chip {
       new THREE.LineBasicMaterial({ color: c, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })
     );
     g.add(halo, ol);
+    const topY = [0.2, 0.12, 0.05, 0.22, 0.05, 0.12, 0.26][i];
+    const tri = this._triOverlay(w * 0.99, d * 0.99, color, i + 1);
+    const t1 = new THREE.Mesh(tri.g, tri.m), t2 = new THREE.Mesh(tri.g, tri.m);
+    t1.position.y = topY + 0.025; t2.position.y = -topY * 0.6;
+    g.add(t1, t2);
+    g.traverse((o) => {
+      if (o.isMesh && !o.isInstancedMesh && o !== halo && o !== t1 && o !== t2 && o.material.blending !== THREE.AdditiveBlending) { o.userData.layer = i; this.pickMeshes.push(o); }
+    });
     this.group.add(g);
-    this.layers.push({ g, i, halo, ol, hl: 0 });
+    this.layers.push({ g, i, halo, ol, hl: 0, hov: 0, triMat: tri.m });
   }
 
   _buildLayers(colors) {
@@ -325,6 +378,7 @@ export class Chip {
     geo.translate(-0.55, -2.2, -0.08);
     this.bracket = new THREE.Mesh(geo, this.m.steel);
     this.bracket.rotation.y = Math.PI / 2;
+    this.bracket.userData.layer = 0; this.pickMeshes.push(this.bracket);
     this.group.add(this.bracket);
   }
 
@@ -443,6 +497,9 @@ export class Chip {
     }
   }
 
+  setHover(i) { this.hoverIdx = i; }
+  pick(raycaster) { const h = raycaster.intersectObjects(this.pickMeshes, false)[0]; return h ? h.object.userData.layer : -1; }
+
   setState(e, x) { this.e = e; this.x = x; }
 
   update(t, dt) {
@@ -453,7 +510,10 @@ export class Chip {
       L.g.position.y = REST_Y[i] + (EXP_Y[i] - REST_Y[i]) * le + Math.sin(t * 0.8 + i * 1.3) * 0.05 * le;
       L.g.rotation.y = ROT[i] * le + Math.sin(t * 0.3 + i) * 0.02 * le;
       L.g.rotation.z = TILT[i] * le;
-      const target = clamp(1 - Math.abs(this.x - 1 - i) * 1.5, 0, 1);
+      L.hov += ((this.hoverIdx === i ? 1 : 0) - L.hov) * (1 - Math.exp(-dt * 9));
+      L.triMat.uniforms.uH.value = L.hov;
+      L.g.position.y += L.hov * 0.22;
+      const target = Math.max(clamp(1 - Math.abs(this.x - 1 - i) * 1.5, 0, 1), L.hov * 0.9);
       L.hl += (target - L.hl) * (1 - Math.exp(-dt * 6));
       L.halo.material.opacity = L.hl * 0.3 * (0.35 + 0.65 * le);
       L.ol.material.opacity = 0.1 * le + L.hl * 0.95;
@@ -463,6 +523,10 @@ export class Chip {
     this.bracket.rotation.set(be * 0.12, Math.PI / 2 + be * 0.35, be * -0.25);
     this.streamMat.uniforms.uE.value = ease(e) * 0.95 + 0.12;
     this.group.rotation.y = t * 0.035;
+    const lg = (1 - ease(clamp(e * 3.2, 0, 1))) * 0.95;
+    this.logo.material.opacity = lg;
+    this.logo.position.y = 6.2 + Math.sin(t * 0.8) * 0.25 + ease(clamp(e * 3.2, 0, 1)) * 3;
+    this.logo.material.rotation = Math.sin(t * 0.4) * 0.08;
     this.shards.forEach((m) => { const u = m.userData; m.rotation.x += u.spin.x * dt; m.rotation.y += u.spin.y * dt; m.rotation.z += u.spin.z * dt; m.position.y = u.y0 + Math.sin(t * 0.2 + u.ph) * 0.8; });
     this.smoke.forEach((s) => {
       const u = s.userData; u.a += dt * u.sp;

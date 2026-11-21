@@ -7,6 +7,7 @@ export const shared = {
   uReveal: { value: 0 },
   uGlitch: { value: 0 },
   uPx: { value: 1 },
+  uClean: { value: 0 },
 };
 
 const HASH = /* glsl */ `float hash(float n){return fract(sin(n)*43758.5453123);}`;
