@@ -18,8 +18,9 @@ export class Sfx {
     this.verb = c.createConvolver(); this.verb.buffer = ir;
     this.verbG = c.createGain(); this.verbG.gain.value = 0.55;
     this.verb.connect(this.verbG); this.verbG.connect(this.master);
-    this._pad();
+    this._music();
     this._air();
+    this.energy = 0.2; this.musicOn = true;
   }
 
   _pad() {
@@ -92,6 +93,80 @@ export class Sfx {
   _pluck(f, vol = 0.07, delay = 0) {
     this._tone({ f, dur: 0.5, type: 'sine', vol, delay, rev: 0.8, attack: 0.004 });
     this._tone({ f: f * 2.01, dur: 0.25, type: 'sine', vol: vol * 0.35, delay, rev: 0.6, attack: 0.004 });
+  }
+
+  // Música ambiental generativa: acordes lentos, arpegio de cristal, bajo suave y pulso ligero
+  _music() {
+    const c = this.ctx;
+    this.musicG = c.createGain(); this.musicG.gain.value = 0;
+    this.musicG.gain.linearRampToValueAtTime(0.85, c.currentTime + 6);
+    this.musicLP = c.createBiquadFilter(); this.musicLP.type = 'lowpass'; this.musicLP.frequency.value = 1200; this.musicLP.Q.value = 0.6;
+    this.musicLP.connect(this.musicG); this.musicG.connect(this.master);
+    const vs = c.createGain(); vs.gain.value = 0.6; this.musicG.connect(vs); vs.connect(this.verb);
+    this.duckG = this.musicG;
+    const bpm = 76, beat = 60 / bpm;
+    const CH = [[146.83, 185, 220, 277.18, 329.63], [123.47, 146.83, 185, 220, 277.18], [98, 123.47, 146.83, 185, 220], [110, 138.59, 164.81, 220, 246.94]];
+    const note = (f, t, dur, vol, type = 'sine', dest = this.musicLP) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.02, dur * 0.2)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.05);
+    };
+    const pad = (ch, t, dur) => ch.forEach((f, i) => {
+      for (const d of [-5, 5]) {
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = 'triangle'; o.frequency.value = f; o.detune.value = d;
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.018 / (1 + i * 0.15), t + 2.2); g.gain.linearRampToValueAtTime(0.0001, t + dur + 1.2);
+        o.connect(g); g.connect(this.musicLP); o.start(t); o.stop(t + dur + 1.3);
+      }
+    });
+    const noiseBuf = c.createBuffer(1, c.sampleRate * 0.2, c.sampleRate), nd = noiseBuf.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    const hat = (t, vol) => {
+      const s = c.createBufferSource(); s.buffer = noiseBuf;
+      const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
+      const g = c.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      s.connect(hp); hp.connect(g); g.connect(this.musicLP); s.start(t); s.stop(t + 0.08);
+    };
+    const kick = (t, vol) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.14);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      o.connect(g); g.connect(this.musicG); o.start(t); o.stop(t + 0.35);
+    };
+    let step = 0, next = c.currentTime + 0.3;
+    const play = (st, t) => {
+      if (!this.musicOn || this.muted) return;
+      const ch = CH[Math.floor(st / 16) % 4], e = this.energy;
+      if (st % 16 === 0) pad(ch, t, beat * 8);
+      if (st % 8 === 0) note(ch[0] / 2, t, beat * 3.5, 0.07, 'sine');
+      if (Math.random() < 0.3 + 0.45 * e) {
+        const f = ch[(Math.random() * ch.length) | 0] * (Math.random() < 0.6 ? 2 : 4);
+        note(f, t, 0.9, 0.022 + 0.014 * e, 'sine');
+        note(f * 2.005, t, 0.35, 0.007, 'sine');
+      }
+      if (e > 0.25 && st % 4 === 0) kick(t, 0.035 + 0.05 * e);
+      if (e > 0.5 && st % 2 === 1) hat(t, 0.012 * e);
+    };
+    setInterval(() => {
+      while (next < c.currentTime + 0.7) { play(step, next); next += beat / 2; step++; }
+    }, 150);
+  }
+
+  setEnergy(e) {
+    if (!this.musicLP) return;
+    this.energy = e;
+    this.musicLP.frequency.setTargetAtTime(900 + e * 2800, this.ctx.currentTime, 0.4);
+  }
+
+  duck(on) {
+    if (!this.musicG || !this.musicOn) return;
+    this.musicG.gain.setTargetAtTime(on ? 0.3 : 0.85, this.ctx.currentTime, 0.35);
+  }
+
+  setMusic(on) {
+    this.musicOn = on;
+    if (this.musicG) this.musicG.gain.setTargetAtTime(on ? 0.85 : 0, this.ctx.currentTime, 0.3);
   }
 
   hover() { this._pluck(1568, 0.035); }

@@ -298,3 +298,30 @@ canvas#gl.pointer { cursor: pointer; }
 @media (max-width: 900px) { .aria { bottom: auto; top: 70px; left: 10px; gap: 12px; } .aria.pos-r { left: calc(100% - 10px); } .aria-wrap, .aria-face { width: 72px; height: 72px; } .aria-bubble { max-width: 56vw; padding: 10px 14px; margin-bottom: 0; } .aria-bubble p { font-size: .8rem; } .aria-btn, .tail { display: none; } }
 .aria-bubble { width: 280px; max-width: 78vw; }
 @keyframes logoFlip { 0%,100% { transform: rotateY(-25deg) scale(1); } 50% { transform: rotateY(25deg) scale(1.07); } }
+
+/* ===== ARIA v2: voz, chat y señal ===== */
+.aria-bubble { width: 330px; max-width: 80vw; max-height: 72vh; overflow-y: auto; scrollbar-width: thin; }
+.aria-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.aria-head b { margin: 0; }
+.aria-pill { font-family: var(--font-b); font-size: .68rem; font-weight: 600; color: #7fe8ff; border: 1px solid rgba(127,232,255,.5); padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.aria-pill.off { color: rgba(255,255,255,.6); border-color: rgba(255,255,255,.3); }
+.aria-bubble p { min-height: 4.5em; color: rgba(255,255,255,.55); transition: color .3s; }
+.aria-bubble p .w { transition: color .25s; }
+.aria-bubble p .w.said { color: #fff; }
+.aria-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+.aria-chip { font-family: var(--font-b); font-size: .74rem; color: rgba(255,255,255,.92); padding: 6px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,.26); background: rgba(255,255,255,.06); transition: .2s; }
+.aria-chip:hover { background: rgba(127,232,255,.2); border-color: #7fe8ff; }
+.aria-form { display: flex; gap: 6px; margin-bottom: 8px; }
+.aria-form input { flex: 1; min-width: 0; font: inherit; font-size: .85rem; color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); border-radius: 999px; padding: 9px 14px; outline: none; }
+.aria-form input:focus { border-color: #7fe8ff; background: rgba(255,255,255,.12); }
+.aria-form button { width: 36px; height: 36px; border-radius: 50%; background: #7fe8ff; color: #06121a; font-size: .85rem; flex: none; }
+.aria-link { font-family: var(--font-b); font-size: .72rem; color: rgba(255,255,255,.65); text-decoration: underline; text-underline-offset: 3px; }
+.aria-link:hover { color: #fff; }
+#ariaAct { margin: 4px 0; }
+.aria-face { box-shadow: 0 0 0 calc(7px + var(--amp, 0) * 9px) rgba(127,232,255, calc(.13 + var(--amp, 0) * .3)), 0 16px 40px rgba(0,0,0,.45), 0 0 calc(40px + var(--amp, 0) * 40px) rgba(0,229,255,.45); will-change: transform; }
+#ariaPoint { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; opacity: 0; }
+.ap-line { fill: none; stroke: rgba(255,255,255,.9); stroke-width: 1.6; stroke-dasharray: 5 7; filter: drop-shadow(0 0 4px rgba(0,229,255,.9)); }
+.ap-ping { fill: none; stroke: #7fe8ff; stroke-width: 1.5; }
+.ap-dot { fill: #fff; filter: drop-shadow(0 0 6px #7fe8ff); }
+@media (max-width: 900px) { .aria-chips, .aria-link { display: none; } .aria-bubble { width: 62vw; max-height: 40vh; } }
+.aria-bubble { overflow-x: hidden; }

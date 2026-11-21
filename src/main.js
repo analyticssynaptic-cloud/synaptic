@@ -4,6 +4,7 @@ import { Stage } from './stage.js';
 import { World, RING_R } from './world.js';
 import { Game } from './game.js';
 import { Chip, EXP_Y } from './chip.js';
+import { createAria } from './aria.js';
 import { Sfx } from './audio.js';
 import { shared } from './hologram.js';
 import { SERVICES, CONFIG, RANKS, HEADLINES } from './services.js';
@@ -294,6 +295,12 @@ function setEagle(on) {
 $('#btnEagle').onclick = () => { sfx.init(); setEagle(!state.eagle); };
 
 // ---------- Sonido ----------
+$('#btnMusic').onclick = () => {
+  sfx.init();
+  sfx.setMusic(!sfx.musicOn);
+  $('#btnMusic').classList.toggle('on', sfx.musicOn);
+};
+$('#btnMusic').classList.add('on');
 $('#btnMute').onclick = () => {
   sfx.init();
   sfx.setMuted(!sfx.muted);
@@ -580,55 +587,16 @@ function hoverChip() {
   }
 }
 
-// ARIA: guía narradora con globitos
-const ARIA_LINES = [
-  'Hola, soy ARIA, la asistente inteligente de Synaptic. Desliza y te muestro cómo se construye la tecnología por dentro.',
-  'Arriba va el blindaje: protegemos tu infraestructura antes de que llegue el ataque.',
-  'El calor lo disipa la nube: arquitectura que escala sin caerse.',
-  'El cristal es tu cara al mundo: experiencias web 3D que se sienten vivas.',
-  'Aquí vivo yo, en el silicio: IA y agentes que trabajan contigo las 24 horas.',
-  'Proyectamos tu producto en realidad aumentada para que lo recorran antes de comprarlo.',
-  'La placa conecta lo físico con los datos: sensores, dispositivos y control remoto.',
-  'Y la base sostiene todo: software y apps a la medida de tu operación.',
-  `¿Listo? Escríbenos al WhatsApp ${CONFIG.phone} y armamos tu proyecto.`,
-];
-const ariaEl = $('#aria'), ariaText = $('#ariaText'), ariaBubble = $('#ariaBubble'), ariaLoop = $('#ariaLoop'), ariaTalk = $('#ariaTalk'), ariaBtn = $('#ariaVoice');
-let ariaTimer = 0, ariaIdx = -1, ariaSpeaking = false, ariaAudio = null, ariaWords = null;
-function ariaSay(idx) {
-  if (ariaSpeaking || idx === ariaIdx) return;
-  ariaIdx = idx;
-  const txt = ARIA_LINES[Math.max(0, Math.min(ARIA_LINES.length - 1, idx))];
-  // Opuesta al texto: capítulos pares a la izquierda del chip → Aria a la izquierda
-  const textLeft = idx === 0 || idx === ARIA_LINES.length - 1 || (idx - 1) % 2 === 1;
-  ariaEl.classList.toggle('pos-r', textLeft);
-  ariaEl.classList.toggle('pos-l', !textLeft);
-  ariaBubble.classList.remove('pop'); void ariaBubble.offsetWidth; ariaBubble.classList.add('pop');
-  clearInterval(ariaTimer);
-  let n = 0; ariaText.textContent = '';
-  ariaTimer = setInterval(() => { n += 2; ariaText.textContent = txt.slice(0, n); if (n >= txt.length) clearInterval(ariaTimer); }, 22);
-}
-function ariaSetTalking(on) {
-  ariaTalk.style.opacity = on ? 1 : 0;
-  ariaEl.classList.toggle('talking', on);
-  if (on) { ariaTalk.currentTime = 0; ariaTalk.play().catch(() => {}); } else ariaTalk.pause();
-}
-async function ariaToggleVoice() {
-  sfx.init();
-  if (ariaSpeaking) { ariaAudio.pause(); ariaStopVoice(); return; }
-  if (!ariaWords) { try { ariaWords = await (await fetch('aria-voz.json')).json(); } catch (e) { ariaWords = []; } }
-  ariaAudio = new Audio('aria-voz.mp3');
-  ariaSpeaking = true; ariaBtn.textContent = '■ Detener'; clearInterval(ariaTimer);
-  ariaSetTalking(true);
-  ariaAudio.ontimeupdate = () => { const ct = ariaAudio.currentTime; ariaText.textContent = ariaWords.filter((w) => w[0] <= ct).map((w) => w[2]).join(' '); };
-  ariaAudio.onended = ariaStopVoice;
-  ariaAudio.play().catch(ariaStopVoice);
-}
-function ariaStopVoice() {
-  ariaSpeaking = false; ariaBtn.textContent = '▶ Escuchar a ARIA'; ariaSetTalking(false);
-  const i = ariaIdx; ariaIdx = -1; ariaSay(Math.max(0, i));
-}
-ariaBtn.onclick = ariaToggleVoice;
-$('#ariaFace').onclick = ariaToggleVoice;
+// ARIA: narradora, gestos y preguntas
+const _lv = new THREE.Vector3();
+const layerScreen = (k) => { chip.layers[k].g.getWorldPosition(_lv); _lv.project(stage.camera); return { x: (_lv.x * 0.5 + 0.5) * innerWidth, y: (-_lv.y * 0.5 + 0.5) * innerHeight, vis: _lv.z < 1 }; };
+let curX = 0;
+const goChapter = (k) => { const h = scroller.scrollHeight - scroller.clientHeight; scroller.scrollTo({ top: (h * Math.max(1, Math.min(chapters.length - 2, k))) / (chapters.length - 1), behavior: 'smooth' }); };
+const aria = createAria({
+  sfx, order, state, scroller, layerScreen, goChapter,
+  openContact: (i) => openContact(i),
+  activeLayer: () => (curX >= 0.7 && curX <= order.length + 0.3 ? Math.max(0, Math.min(order.length - 1, Math.round(curX - 1))) : -1),
+});
 
 let smoothP = 0, introT = 0, prevP = 0, lastNear = -1;
 function journeyCam(dt, t) {
@@ -650,12 +618,14 @@ function journeyCam(dt, t) {
   // Entrada cinematográfica
   if (introT < 4) { introT += dt; const k = Math.pow(1 - introT / 4, 2); g.radius += k * 26; stage.fovGoal = 55 + k * 22; }
   chip.setState(a.e + (b.e - a.e) * f, x);
+  curX = x; aria.frame(dt, t);
+  sfx.setEnergy(0.2 + 0.6 * (a.e + (b.e - a.e) * f));
   updateAnnot(x, t);
   sfx.setWhir(Math.abs(smoothP - prevP) / Math.max(dt, 0.001) * 0.6); prevP = smoothP;
   chapters.forEach((c, k) => c.style.setProperty('--o', Math.max(0, Math.min(1, 1.15 - Math.abs(x - k) * 2.1)).toFixed(3)));
   const near = Math.round(x);
   [...progressEl.children].forEach((d, k) => d.classList.toggle('on', k === near));
-  if (near !== lastNear && Math.abs(x - near) < 0.2) { if (lastNear >= 0) sfx.lock(); lastNear = near; ariaSay(near); }
+  if (near !== lastNear && Math.abs(x - near) < 0.2) { if (lastNear >= 0) sfx.lock(); lastNear = near; aria.say(near); }
   if (near >= 1 && near <= order.length && Math.abs(x - near) < 0.12 && !game.visited.has(order[near - 1])) {
     const up = game.visit(order[near - 1]); refreshHud(up); toast(`+100 XP · ${SERVICES[order[near - 1]].name} sincronizado`);
   }
@@ -673,8 +643,7 @@ function setMode(m) {
   if (!journey) tip.classList.remove('on');
   $('#modeLbl').textContent = journey ? 'Modo Libre' : 'Viaje';
   chip.group.visible = journey;
-  ariaEl.classList.toggle('hidden', !journey);
-  if (journey) { ariaIdx = -1; ariaSay(0); }
+  aria.setJourney(journey);
   annot.style.display = journey ? '' : 'none';
   sfx.cyberOff = !journey && false;
   world.root.visible = !journey;

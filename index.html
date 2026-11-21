@@ -51,6 +51,7 @@
         <button id="btnEagle" class="hbtn" title="Visión de Águila (E)"><svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/></svg><span>Visión [E]</span></button>
         <button id="btnAbout" class="hbtn" title="Sobre Synaptic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v6M12 7.5v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Nosotros</span></button>
         <button id="btnContact" class="hbtn accent" title="Iniciar misión"><svg viewBox="0 0 24 24"><path d="M3 6h18v12H3z M3 7l9 7 9-7" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span>Contacto</span></button>
+        <button id="btnMusic" class="hbtn" title="Música ambiental"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="16.5" cy="16" r="2.5" fill="currentColor"/></svg><span>Música</span></button>
         <button id="btnMute" class="hbtn sq" title="Sonido (M)"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path id="muteWave" d="M16 8c2 2 2 6 0 8M18.5 5.5c3.5 3.5 3.5 9.5 0 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
       </div>
     </div>
@@ -107,16 +108,19 @@
   <div id="aria" class="aria pos-l hidden" aria-live="polite">
     <div class="aria-wrap">
       <i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><i class="orb o4"></i>
-      <button class="aria-face" id="ariaFace" aria-label="Escuchar a ARIA">
+      <button class="aria-face" id="ariaFace" aria-label="Hablar con ARIA">
         <video id="ariaLoop" src="aria-loop.mp4" muted loop playsinline autoplay preload="auto"></video>
         <video id="ariaTalk" src="aria-talk.mp4" muted loop playsinline preload="auto"></video>
       </button>
     </div>
     <div class="aria-bubble" id="ariaBubble">
       <span class="tail t1"></span><span class="tail t2"></span><span class="tail t3"></span>
-      <b>ARIA · asistente de Synaptic</b>
+      <div class="aria-head"><b>ARIA · asistente de Synaptic</b><button id="ariaMute" class="aria-pill" type="button">Voz activada</button></div>
       <p id="ariaText"></p>
-      <button id="ariaVoice" class="aria-btn">▶ Escuchar a ARIA</button>
+      <div id="ariaAct"></div>
+      <div class="aria-chips" id="ariaChips"></div>
+      <form id="ariaForm" class="aria-form"><input id="ariaQ" placeholder="Pregúntale a ARIA…" autocomplete="off" maxlength="160" /><button type="submit" aria-label="Enviar">➤</button></form>
+      <button id="ariaVoice" class="aria-link" type="button">▶ Escuchar su voz original</button>
     </div>
   </div>
   <div id="tip" class="tip"><div class="tip-k"></div><div class="tip-t"></div><p></p><span class="tip-c">Clic para ver el detalle →</span></div>
