@@ -1,249 +1,265 @@
-import { SERVICES, CONFIG } from './services.js';
+import { CONFIG, SERVICES } from './services.js';
 
 const $ = (s) => document.querySelector(s);
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9ñ ]/g, ' ');
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const BASE = (import.meta.env.BASE_URL || './').replace(/\/?$/, '/');
+const ARIA_REPO = 'https://github.com/analyticssynaptic-cloud/ARIA-Red-Sinaptica';
+const ARIA_PAGES = 'https://analyticssynaptic-cloud.github.io/ARIA-Red-Sinaptica/';
 
-// Guion por capítulo: 0 = inicio, 1..7 = capas, 8 = cierre
-export const SCRIPT = [
-  'Hola, soy ARIA, la asistente inteligente de Synaptic. Voy a guiarte por dentro de un chip: cada capa es un servicio que construimos. Desliza, gira el chip con el mouse, o pregúntame lo que quieras.',
-  'Empezamos por arriba: el blindaje. En ciberseguridad hacemos auditorías y pruebas de penetración, endurecemos servidores y monitoreamos todo el tiempo para frenar el ataque antes de que ocurra.',
-  'Debajo está el disipador: la nube. Diseñamos arquitectura y migraciones, automatizamos los despliegues y cuidamos los costos, para que tu plataforma escale sin caerse.',
-  'Este cristal es tu cara al mundo. Construimos sitios y tiendas con escenas tridimensionales en tiempo real, animaciones avanzadas y un rendimiento de primera, como esta misma página.',
-  'Y aquí, en el silicio, vivo yo. Creamos agentes y asistentes de inteligencia artificial, chatbots para WhatsApp y sistemas que responden usando tus propios documentos.',
-  'Esta capa proyecta tu producto en realidad aumentada y virtual: showrooms que se pueden recorrer, simuladores de entrenamiento y experiencias para eventos.',
-  'La placa de circuitos conecta lo físico con los datos: sensores, monitoreo industrial, domótica y paneles en tiempo real.',
-  'Y la base sostiene todo: software a la medida y aplicaciones móviles, con paneles, integraciones y pagos, pensados para escalar tu operación.',
-  `Eso es Synaptic. Si algo de lo que viste encaja con tu proyecto, escríbenos al WhatsApp ${CONFIG.phone}. Y si te quedó alguna duda, pregúntame aquí abajo.`,
+// Frases que terminan mostrando el número (no se dicta en voz)
+const PHONE_IDS = new Set(['ch8', 'gracias', 'precio', 'contacto', 'ubicacion', 'fallback']);
+const CHIPS = [['¿Qué servicios ofrecen?', 'servicios'], ['¿Cómo trabajan?', 'proceso'], ['¿Cuánto cuesta?', 'precio'], ['¿Cómo los contacto?', 'contacto']];
+
+// Preguntas → id de frase grabada (+ servicio que se muestra en el chip)
+const KB = [
+  { id: 'saludo', k: ['hola', 'buenas', 'hey', 'saludos', 'buenos dias', 'buenas tardes', 'buenas noches'] },
+  { id: 'gracias', k: ['gracias', 'perfecto', 'genial', 'excelente', 'listo', 'chevere'] },
+  { id: 'quien', k: ['quien eres', 'tu nombre', 'como te llamas', 'aria', 'eres una', 'que eres'] },
+  { id: 'empresa', k: ['quienes son', 'que es synaptic', 'empresa', 'compania', 'a que se dedican', 'que hacen', 'sobre ustedes', 'nosotros'] },
+  { id: 'servicios', k: ['servicio', 'ofrecen', 'soluciones', 'catalogo', 'que venden', 'portafolio'] },
+  { id: 's_web', svc: 'web', k: ['web', 'pagina', 'sitio', 'tienda', 'ecommerce', 'landing', 'webgl', '3d'] },
+  { id: 's_apps', svc: 'apps', k: ['app', 'movil', 'celular', 'aplicacion', 'software', 'sistema', 'erp', 'crm', 'inventario'] },
+  { id: 's_ia', svc: 'ia', k: ['ia', 'inteligencia', 'artificial', 'chatbot', 'agente', 'bot', 'automatiz', 'whatsapp', 'gpt'] },
+  { id: 's_cyber', svc: 'cyber', k: ['segur', 'hack', 'ataque', 'pentest', 'ciber', 'proteg', 'vulnerab', 'phishing'] },
+  { id: 's_cloud', svc: 'cloud', k: ['nube', 'cloud', 'aws', 'azure', 'servidor', 'devops', 'migrac', 'kubernetes', 'hosting'] },
+  { id: 's_iot', svc: 'iot', k: ['iot', 'sensor', 'domotica', 'dispositivo', 'industrial', 'telemetria', 'internet de las cosas'] },
+  { id: 's_arvr', svc: 'arvr', k: ['realidad', 'virtual', 'aumentada', 'vr', 'showroom', 'xr', 'simulador', 'metaverso'] },
+  { id: 'proceso', k: ['como trabajan', 'proceso', 'metodologia', 'etapas', 'pasos', 'como funciona'] },
+  { id: 'precio', k: ['cuanto cuesta', 'cuanto vale', 'precio', 'costo', 'valor', 'presupuesto', 'cotiz', 'tarifa', 'cobran'] },
+  { id: 'tiempo', k: ['cuanto demora', 'tiempo', 'plazo', 'demora', 'entrega', 'tardan', 'cuanto tarda'] },
+  { id: 'contacto', k: ['contact', 'whatsapp', 'telefono', 'llamar', 'numero', 'escribir', 'hablar con', 'reunion', 'cita', 'asesor'] },
+  { id: 'tecno', k: ['tecnolog', 'stack', 'herramient', 'lenguaje', 'framework', 'programan'] },
+  { id: 'soporte', k: ['soporte', 'mantenimiento', 'garantia', 'despues', 'postventa'] },
+  { id: 'ubicacion', k: ['donde', 'ubicad', 'ciudad', 'pais', 'direccion', 'oficina', 'sede'] },
 ];
 
-const CHIPS = ['¿Qué servicios ofrecen?', '¿Cómo trabajan?', '¿Cuánto cuesta?', '¿Cómo los contacto?'];
-
-// Base de conocimiento: palabras clave → respuesta (+ servicio / acción)
-function buildKB(order) {
-  const svc = (id) => SERVICES.find((s) => s.id === id);
-  const sv = (id, kw) => {
-    const s = svc(id);
-    return { k: kw, svc: id, a: `${s.name}. ${s.tagline} ${s.desc}` };
-  };
-  return [
-    { k: ['hola', 'buenas', 'hey', 'saludos', 'buenos dias', 'buenas tardes'], a: 'Hola, ¡qué gusto! Soy ARIA. Puedo contarte qué hace Synaptic, cómo trabajamos o llevarte a cualquiera de los siete servicios. ¿Qué quieres saber?' },
-    { k: ['gracias', 'perfecto', 'genial', 'excelente', 'listo'], a: 'Con gusto. Si quieres avanzar con tu proyecto, escríbenos por WhatsApp y el equipo te responde el mismo día.', act: 'contact' },
-    { k: ['quien eres', 'tu nombre', 'aria', 'eres una', 'que eres'], a: 'Soy ARIA, la asistente inteligente de Synaptic. Te guío por la web, respondo dudas sobre la compañía y te conecto con el equipo cuando quieras avanzar.' },
-    { k: ['quienes son', 'que es synaptic', 'empresa', 'compania', 'a que se dedican', 'que hacen', 'sobre ustedes', 'nosotros'], a: 'Synaptic es una empresa de tecnología. Construimos software y aplicaciones, inteligencia artificial, ciberseguridad, infraestructura en la nube, IoT y experiencias 3D y de realidad aumentada. Todo a la medida de cada negocio, de la idea al lanzamiento y después.' },
-    { k: ['servicio', 'ofrecen', 'soluciones', 'catalogo', 'que venden', 'que ofrecen'], a: `Ofrecemos siete líneas: ${SERVICES.map((s) => s.name).join(', ')}. Dime cuál te interesa y te la muestro.` },
-    sv('web', ['web', 'pagina', 'sitio', 'tienda', 'ecommerce', 'landing', 'webgl']),
-    sv('apps', ['app', 'movil', 'celular', 'aplicacion', 'software', 'sistema', 'erp', 'crm', 'a la medida', 'panel']),
-    sv('ia', ['ia', 'inteligencia', 'artificial', 'chatbot', 'agente', 'bot', 'automatiz', 'whatsapp', 'machine', 'rag']),
-    sv('cyber', ['segur', 'hack', 'ataque', 'pentest', 'ciber', 'proteg', 'vulnerab', 'phishing']),
-    sv('cloud', ['nube', 'cloud', 'aws', 'azure', 'servidor', 'devops', 'migrac', 'kubernetes', 'hosting']),
-    sv('iot', ['iot', 'sensor', 'domotica', 'dispositivo', 'industrial', 'telemetria', 'arduino']),
-    sv('arvr', ['realidad', 'virtual', 'aumentada', 'vr', 'showroom', 'xr', 'simulador', 'metaverso']),
-    { k: ['como trabajan', 'proceso', 'metodologia', 'etapas', 'pasos', 'como funciona'], a: 'Trabajamos por misiones: primero entendemos tu objetivo, luego diseñamos la arquitectura, construimos en ciclos cortos con entregas que puedes ver, lanzamos y seguimos operando contigo después.' },
-    { k: ['cuanto cuesta', 'precio', 'costo', 'valor', 'presupuesto', 'cotiz', 'tarifa', 'cobran'], a: `El valor depende del alcance de cada proyecto, por eso no manejamos precios fijos. Cuéntanos qué necesitas y te preparamos una cotización. Escríbenos al WhatsApp ${CONFIG.phone}.`, act: 'contact' },
-    { k: ['cuanto demora', 'tiempo', 'plazo', 'cuando', 'demora', 'entrega', 'tardan'], a: 'Los tiempos dependen del alcance. Trabajamos en ciclos cortos con entregas parciales para que veas avances rápido, y al cotizar te damos un cronograma claro.' },
-    { k: ['contact', 'whatsapp', 'telefono', 'llamar', 'numero', 'escribir', 'hablar', 'celular de', 'reunion', 'cita'], a: `Puedes escribirnos o llamarnos al ${CONFIG.phone}. Te respondemos el mismo día.`, act: 'contact' },
-    { k: ['tecnolog', 'stack', 'herramient', 'lenguaje', 'framework', 'usan'], a: `Según el proyecto usamos, entre otras: ${[...new Set(SERVICES.flatMap((s) => s.stack.slice(0, 3)))].slice(0, 14).join(', ')}. Elegimos la herramienta correcta para cada caso, no al revés.` },
-    { k: ['soporte', 'mantenimiento', 'garantia', 'despues', 'postventa'], a: 'No desaparecemos tras el lanzamiento: operamos contigo con monitoreo, mejoras y soporte según el plan que acordemos.' },
-    { k: ['donde', 'ubicad', 'ciudad', 'pais', 'direccion', 'oficina', 'sede'], a: `Para temas de ubicación y reuniones, lo mejor es escribirnos al WhatsApp ${CONFIG.phone} y el equipo te confirma.`, act: 'contact' },
-  ];
-}
-
-export function createAria({ sfx, order, state, scroller, chaptersCount, layerScreen, openContact, goChapter, activeLayer }) {
-  const el = $('#aria'), bubble = $('#ariaBubble'), textEl = $('#ariaText'), face = $('#ariaFace'), loop = $('#ariaLoop'), talk = $('#ariaTalk');
-  const act = $('#ariaAct'), chipsEl = $('#ariaChips'), form = $('#ariaForm'), input = $('#ariaQ'), muteBtn = $('#ariaMute'), origBtn = $('#ariaVoice');
-  const kb = buildKB(order);
+export function createAria({ sfx, order, state, scroller, layerScreen, openContact, goChapter, activeLayer }) {
+  const el = $('#aria'), bubble = $('#ariaBubble'), textEl = $('#ariaText'), face = $('#ariaFace'), talk = $('#ariaTalk');
+  const act = $('#ariaAct'), chipsEl = $('#ariaChips'), form = $('#ariaForm'), input = $('#ariaQ'), muteBtn = $('#ariaMute'), replayBtn = $('#ariaVoice');
   const wrap = el.querySelector('.aria-wrap');
 
   let voiceOn = true; try { voiceOn = localStorage.getItem('synaptic.ariaVoice') !== '0'; } catch (e) { /* ok */ }
-  let idx = -1, speaking = false, amp = 0, settle = 0, estTimer = 0, queueToken = 0, pointK = -1, pointT = 0, gestureT = 6, ry = 0, rx = 0;
-  let voice = null, words = [], recorded = null, analyser = null, anaData = null, recWords = null, srcNode = null;
+  let man = null; const manReady = fetch(BASE + 'aria/voice/manifest.json').then((r) => r.json()).then((m) => (man = m)).catch(() => (man = {}));
 
-  // ---------- Voz: elegir la mejor voz en español ----------
-  const pickVoice = () => {
-    const vs = speechSynthesis.getVoices().filter((v) => /^es/i.test(v.lang));
-    const score = (v) => (/natural|neural|online/i.test(v.name) ? 6 : 0) + (/sabina|dalia|paulina|helena|elena|laura|monica|google/i.test(v.name) ? 4 : 0) + (/CO|MX|US|419/i.test(v.lang) ? 2 : 0) + (/male|jorge|pablo|diego|raul/i.test(v.name) ? -5 : 0);
-    voice = vs.sort((a, b) => score(b) - score(a))[0] || null;
+  // ---------- Una sola salida de voz, analizada para mover la boca ----------
+  const voiceEl = new Audio(); voiceEl.preload = 'auto';
+  let analyser = null, buf = null, srcNode = null;
+  const hookAudio = () => {
+    if (srcNode || !sfx.ctx) return;
+    try {
+      srcNode = sfx.ctx.createMediaElementSource(voiceEl);
+      analyser = sfx.ctx.createAnalyser(); analyser.fftSize = 512; buf = new Uint8Array(analyser.fftSize);
+      srcNode.connect(analyser); analyser.connect(sfx.master);
+    } catch (e) { srcNode = null; analyser = null; }
   };
-  if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.addEventListener('voiceschanged', pickVoice); }
 
-  // ---------- Texto con palabras resaltables ----------
-  function render(text, doneAll = false) {
-    words = [];
-    textEl.innerHTML = '';
+  let cur = null, speaking = false, wi = 0, env = 0, nod = 0, mouth = 0, holdUntil = 0, idx = -1, settle = 0, lastGreet = -1e9;
+  let pointK = -1, pointT = 0, gestureT = 7, ry = 0, rx = 0, mx = innerWidth / 2, my = innerHeight / 2;
+  addEventListener('pointermove', (e) => { mx = e.clientX; my = e.clientY; }, { passive: true });
+
+  // ---------- Texto con karaoke exacto (tiempos de la voz) ----------
+  let spans = [];
+  function render(text, done) {
+    spans = []; textEl.innerHTML = '';
     let pos = 0;
     text.split(/(\s+)/).forEach((tok) => {
       if (!tok) return;
       if (/^\s+$/.test(tok)) { textEl.appendChild(document.createTextNode(tok)); pos += tok.length; return; }
-      const s = document.createElement('span'); s.className = 'w' + (doneAll ? ' said' : ''); s.textContent = tok;
-      textEl.appendChild(s); words.push({ s, start: pos }); pos += tok.length;
+      const s = document.createElement('span'); s.className = 'w' + (done ? ' said' : ''); s.textContent = tok;
+      textEl.appendChild(s); spans.push({ s, start: pos }); pos += tok.length;
     });
   }
-  const mark = (charIdx) => words.forEach((w) => { if (w.start <= charIdx) w.s.classList.add('said'); });
+  const mark = (ci) => spans.forEach((w) => { if (w.start < ci) w.s.classList.add('said'); });
 
-  function setTalking(on) {
-    speaking = on;
-    el.classList.toggle('talking', on);
-    sfx.duck && sfx.duck(on);
-    if (on) { talk.currentTime = 0; talk.play().catch(() => {}); } else { talk.pause(); talk.style.opacity = 0; }
+  function showPhone(id) {
+    act.innerHTML = '';
+    if (!PHONE_IDS.has(id)) return;
+    const wa = `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent('Hola Synaptic, vengo de la página y quiero más información.')}`;
+    act.innerHTML = `<a class="aria-phone" href="${wa}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.5 7.5c.3-.6.6-.6 1-.6l.6.1 1 2.3-.6.8c.6 1.3 1.6 2.3 2.9 2.9l.8-.6 2.3 1-.1.7c0 .4-.3.9-.7 1.1-1 .5-2.6.2-4.4-1.2s-3.4-3.6-3.3-4.8c0-.4.2-.9.5-1.2z" fill="currentColor"/></svg>${CONFIG.phone}</a><button class="aria-btn" type="button">Escribir ahora</button>`;
+    act.querySelector('button').onclick = () => window.open(wa, '_blank', 'noopener');
   }
 
-  function stopSpeech() {
-    queueToken++;
-    clearTimeout(settle); clearInterval(estTimer);
-    if ('speechSynthesis' in window) speechSynthesis.cancel();
-    if (recorded) { recorded.pause(); recorded = null; origBtn.textContent = '▶ Escuchar su voz original'; }
-    if (speaking) setTalking(false);
+  function stop() {
+    clearTimeout(settle);
+    voiceEl.pause();
+    if (speaking) { speaking = false; el.classList.remove('talking'); sfx.duck && sfx.duck(false); talk.pause(); }
   }
 
-  // Habla un texto con TTS, resaltando palabra a palabra
-  function speak(text, onDone) {
-    stopSpeech();
-    render(text, !voiceOn);
-    if (!voiceOn || !('speechSynthesis' in window)) { onDone && onDone(); return; }
-    const token = ++queueToken;
-    const sentences = text.match(/[^.!?¿]+[.!?]?/g) || [text];
-    let offset = 0, i = 0;
-    setTalking(true);
-    const t0 = performance.now();
-    clearInterval(estTimer);
-    let boundarySeen = false;
-    estTimer = setInterval(() => { if (!boundarySeen) mark(((performance.now() - t0) / 1000) * 14.5); }, 90);
-    const next = () => {
-      if (token !== queueToken) return;
-      if (i >= sentences.length) { clearInterval(estTimer); mark(1e9); setTalking(false); onDone && onDone(); return; }
-      const sent = sentences[i], base = offset;
-      const u = new SpeechSynthesisUtterance(sent.trim());
-      if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = 'es-CO';
-      u.rate = 1.02; u.pitch = 1.08; u.volume = sfx.muted ? 0 : 1;
-      u.onboundary = (e) => { boundarySeen = true; amp = 1; mark(base + (e.charIndex || 0) + 1); };
-      u.onend = () => { amp = 0.2; offset += sent.length; i++; setTimeout(next, 160); };
-      u.onerror = () => { i++; next(); };
-      speechSynthesis.speak(u);
-    };
-    setTimeout(next, 60);
+  async function play(id, { onEnd } = {}) {
+    stop();
+    await manReady;
+    const entry = man && man[id];
+    if (!entry) { onEnd && onEnd(); return; }
+    render(entry.text, !voiceOn);
+    showPhone(id);
+    if (!voiceOn) { onEnd && onEnd(); return; }
+    // Posición en el texto donde termina cada palabra dicha
+    let c = 0;
+    const marks = entry.words.map(([s, e, w]) => { const p = entry.text.indexOf(w, c); if (p >= 0) c = p + w.length; return { s, e, end: c }; });
+    cur = { id, entry, marks, onEnd }; wi = 0;
+    hookAudio();
+    if (sfx.ctx && sfx.ctx.state === 'suspended') sfx.ctx.resume();
+    voiceEl.src = `${BASE}aria/voice/${id}.mp3`;
+    voiceEl.currentTime = 0;
+    try { await voiceEl.play(); } catch (e) { render(entry.text, true); onEnd && onEnd(); return; }
+    speaking = true; el.classList.add('talking'); sfx.duck && sfx.duck(true);
+    talk.currentTime = 0; talk.play().catch(() => {});
   }
-
-  // ---------- Voz original grabada (con análisis de amplitud) ----------
-  async function playRecorded() {
-    sfx.init();
-    if (recorded) { stopSpeech(); render(SCRIPT[Math.max(0, idx)] || SCRIPT[0], true); return; }
-    stopSpeech();
-    if (!recWords) { try { recWords = await (await fetch('aria-voz.json')).json(); } catch (e) { recWords = []; } }
-    const a = new Audio('aria-voz.mp3'); recorded = a;
-    const full = recWords.map((w) => w[2]).join(' ');
-    render(full); origBtn.textContent = '■ Detener';
-    // posición de caracteres de cada palabra
-    let p = 0; const starts = recWords.map((w) => { const s = p; p += w[2].length + 1; return s; });
-    a.volume = sfx.muted ? 0 : 1;
-    setTalking(true);
-    a.ontimeupdate = () => { const ct = a.currentTime; let ci = -1; recWords.forEach((w, k) => { if (w[0] <= ct) ci = starts[k]; }); mark(ci); amp = Math.max(amp, 0.5 + 0.5 * Math.abs(Math.sin(ct * 11))); };
-    a.onended = () => { recorded = null; origBtn.textContent = '▶ Escuchar su voz original'; setTalking(false); mark(1e9); };
-    a.play().catch(() => { recorded = null; setTalking(false); });
-  }
-  origBtn.onclick = playRecorded;
+  voiceEl.addEventListener('ended', () => {
+    if (!cur) return;
+    mark(1e9); speaking = false; el.classList.remove('talking'); sfx.duck && sfx.duck(false); talk.pause();
+    const cb = cur.onEnd; cur = null; cb && cb();
+  });
 
   // ---------- Narración por capítulo ----------
-  let holdUntil = 0;
   function say(i) {
     if (i === idx) return;
     if (performance.now() < holdUntil) { idx = i; return; }
     idx = i;
-    const txt = SCRIPT[clamp(i, 0, SCRIPT.length - 1)];
-    const textLeft = i === 0 || i === SCRIPT.length - 1 || (i - 1) % 2 === 1;
+    const textLeft = i === 0 || i === 8 || (i - 1) % 2 === 1;
     el.classList.toggle('pos-r', textLeft); el.classList.toggle('pos-l', !textLeft);
     bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop');
-    act.innerHTML = '';
-    stopSpeech();
-    render(txt, false);
-    if (!voiceOn) mark(1e9);
-    clearTimeout(settle);
+    stop();
+    manReady.then(() => { if (idx === i && man[`ch${i}`]) { render(man[`ch${i}`].text, !voiceOn); showPhone(`ch${i}`); } });
     settle = setTimeout(() => {
-      if (state.mode !== 'journey' || idx !== i) return;
-      speak(txt);
-      if (i >= 1 && i <= 7) { setTimeout(() => idx === i && point(i - 1, 5), 900); setTimeout(() => idx === i && point(i - 1, 4), 6500); }
-    }, 1100);
+      if (state.mode !== 'journey' || idx !== i || $('#ariaBody').classList.contains('on')) return;
+      play(`ch${i}`);
+      if (i >= 1 && i <= 7) { setTimeout(() => idx === i && point(i - 1, 5), 700); setTimeout(() => idx === i && point(i - 1, 4), 6000); }
+    }, 900);
   }
-
-  // ---------- Gesto de señalar ----------
-  const NS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(NS, 'svg'); svg.id = 'ariaPoint';
-  svg.innerHTML = '<path id="apPath" class="ap-line"/><circle id="apPing1" class="ap-ping"/><circle id="apPing2" class="ap-ping"/><circle id="apDot" class="ap-dot" r="4"/>';
-  document.body.appendChild(svg);
-  const apPath = svg.querySelector('#apPath'), ping1 = svg.querySelector('#apPing1'), ping2 = svg.querySelector('#apPing2'), apDot = svg.querySelector('#apDot');
-  function point(k, dur = 4) { if (k < 0 || k > 6) return; pointK = k; pointT = dur; }
 
   // ---------- Preguntas ----------
   function ask(q) {
     q = q.trim(); if (!q) return;
     const n = ' ' + norm(q) + ' ';
     let best = null, bs = 0;
-    kb.forEach((e) => { let s = 0; e.k.forEach((kw) => { if (n.includes(' ' + norm(kw)) || n.includes(norm(kw))) s += kw.length > 4 ? 2 : 1; }); if (s > bs) { bs = s; best = e; } });
-    let ans, action = null, svcId = null;
-    if (best && bs >= 1) { ans = best.a; action = best.act || null; svcId = best.svc || null; }
-    else { ans = `Buena pregunta. Eso lo confirma mejor el equipo de Synaptic: escríbenos al WhatsApp ${CONFIG.phone} y te responden el mismo día. Mientras tanto, puedo contarte de cualquiera de los siete servicios.`; action = 'contact'; }
-    act.innerHTML = '';
-    stopSpeech();
-    holdUntil = performance.now() + 14000;
+    KB.forEach((e) => { let s = 0; e.k.forEach((kw) => { const k = norm(kw); if (n.includes(' ' + k) || (k.length > 3 && n.includes(k))) s += k.length > 4 ? 2 : 1; }); if (s > bs) { bs = s; best = e; } });
+    const entry = best && bs >= 1 ? best : { id: 'fallback' };
+    holdUntil = performance.now() + 15000;
     bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop');
-    const done = () => {};
-    speak(ans, done);
-    if (action === 'contact' || svcId) {
-      const b = document.createElement('button'); b.className = 'aria-btn';
-      b.textContent = svcId ? 'Ver este servicio en el chip' : 'Escribir por WhatsApp';
-      b.onclick = () => (svcId ? goChapter(order.indexOf(SERVICES.findIndex((s) => s.id === svcId)) + 1) : openContact(-1));
-      act.appendChild(b);
+    play(entry.id);
+    if (entry.svc) {
+      const ch = order.indexOf(SERVICES.findIndex((s) => s.id === entry.svc)) + 1;
+      if (ch > 0) setTimeout(() => goChapter(ch), 700);
     }
-    if (svcId) { const k = order.indexOf(SERVICES.findIndex((s) => s.id === svcId)); setTimeout(() => goChapter(k + 1), 600); }
   }
   form.addEventListener('submit', (e) => { e.preventDefault(); const q = input.value; input.value = ''; sfx.init(); ask(q); });
-  CHIPS.forEach((c) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'aria-chip'; b.textContent = c; b.onclick = () => { sfx.init(); sfx.click(); ask(c); }; chipsEl.appendChild(b); });
+  CHIPS.forEach(([label]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'aria-chip'; b.textContent = label; b.onclick = () => { sfx.init(); sfx.click(); ask(label); }; chipsEl.appendChild(b); });
 
   // ---------- Controles ----------
   const paintMute = () => { muteBtn.textContent = voiceOn ? 'Voz activada' : 'Voz apagada'; muteBtn.classList.toggle('off', !voiceOn); };
-  muteBtn.onclick = () => { voiceOn = !voiceOn; try { localStorage.setItem('synaptic.ariaVoice', voiceOn ? '1' : '0'); } catch (e) { /* ok */ } paintMute(); if (!voiceOn) { stopSpeech(); mark(1e9); } else { const i = idx; idx = -1; say(i); } };
+  muteBtn.onclick = () => { voiceOn = !voiceOn; try { localStorage.setItem('synaptic.ariaVoice', voiceOn ? '1' : '0'); } catch (e) { /* ok */ } paintMute(); if (!voiceOn) { stop(); mark(1e9); } };
   paintMute();
-  face.onclick = () => { sfx.init(); if (speaking) { stopSpeech(); mark(1e9); } else speak(SCRIPT[clamp(idx, 0, SCRIPT.length - 1)]); };
-  el.addEventListener('wheel', (e) => { if (state.mode === 'journey' && !e.target.closest('input')) { e.preventDefault(); scroller.scrollTop += e.deltaY; } }, { passive: false });
+  replayBtn.textContent = '↻ Repetir';
+  replayBtn.onclick = () => { sfx.init(); play(cur ? cur.id : `ch${Math.max(0, idx)}`); };
+  el.addEventListener('wheel', (e) => { if (state.mode === 'journey' && !e.target.closest('input,.aria-bubble')) { e.preventDefault(); scroller.scrollTop += e.deltaY; } }, { passive: false });
 
-  // ---------- Frame: boca, cabeza y señal ----------
+  // Saluda cuando le pasas el mouse
+  face.addEventListener('pointerenter', () => {
+    el.classList.add('notice');
+    if (speaking || !voiceOn || performance.now() - lastGreet < 25000) return;
+    lastGreet = performance.now();
+    const pick = ['hi1', 'hi2', 'hi3'][(Math.random() * 3) | 0];
+    holdUntil = performance.now() + 3500;
+    play(pick);
+  });
+  face.addEventListener('pointerleave', () => el.classList.remove('notice'));
+
+  // ---------- Clic: ARIA de cuerpo completo (su proyecto) ----------
+  const body = $('#ariaBody'), abVideo = $('#abVideo'), abFrame = $('#abFrame'), abEnd = $('#abEnd');
+  const tabs = [...body.querySelectorAll('[data-t]')];
+  function setTab(t) {
+    tabs.forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+    const isVideo = t === 'body';
+    abVideo.style.display = isVideo ? '' : 'none';
+    abEnd.style.display = 'none';
+    abFrame.style.display = isVideo ? 'none' : '';
+    if (isVideo) { abFrame.src = 'about:blank'; abVideo.currentTime = 0; abVideo.play().catch(() => {}); }
+    else { abVideo.pause(); abFrame.src = t === 'red' ? ARIA_PAGES : ARIA_PAGES + 'avatar.html'; }
+  }
+  tabs.forEach((b) => (b.onclick = () => { sfx.click(); setTab(b.dataset.t); }));
+  abVideo.addEventListener('ended', () => { abEnd.style.display = ''; });
+  $('#abNext').onclick = () => setTab('red');
+  $('#abGit').href = ARIA_REPO;
+  function openBody() {
+    sfx.init(); sfx.open();
+    body.classList.add('on'); state.modal = true;
+    setTab('body');
+    holdUntil = performance.now() + 4000;
+    play('body');
+  }
+  function closeBody() {
+    body.classList.remove('on'); state.modal = false;
+    abVideo.pause(); abFrame.src = 'about:blank'; sfx.close();
+  }
+  face.onclick = openBody;
+  $('#abClose').onclick = closeBody;
+  body.addEventListener('pointerdown', (e) => { if (e.target === body) closeBody(); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && body.classList.contains('on')) closeBody(); });
+
+  // ---------- Señalar ----------
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg'); svg.id = 'ariaPoint';
+  svg.innerHTML = '<path id="apPath" class="ap-line"/><circle id="apPing1" class="ap-ping"/><circle id="apPing2" class="ap-ping"/><circle id="apDot" class="ap-dot" r="4"/>';
+  document.body.appendChild(svg);
+  const apPath = svg.querySelector('#apPath'), ping1 = svg.querySelector('#apPing1'), ping2 = svg.querySelector('#apPing2'), apDot = svg.querySelector('#apDot');
+  function point(k, dur = 4) { if (k >= 0 && k <= 6) { pointK = k; pointT = dur; } }
+
+  // ---------- Frame: labios, cabeza, mirada y señal ----------
   function frame(dt, t) {
-    amp *= Math.exp(-dt * 6);
-    const base = speaking ? 0.28 + 0.22 * Math.sin(t * 13) : 0;
-    const a = clamp(Math.max(amp, base), 0, 1);
-    talk.style.opacity = speaking && a > 0.22 ? 1 : 0;
-    talk.playbackRate = 0.9 + a * 0.5;
-    el.style.setProperty('--amp', a.toFixed(2));
-    // Señal
+    // Energía real de la voz
+    let rms = 0;
+    if (speaking && analyser) { analyser.getByteTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; s += v * v; } rms = Math.sqrt(s / buf.length); }
+    env = rms > env ? env + (rms - env) * 0.6 : env * Math.exp(-dt * 14);
+    // Palabra en curso según los tiempos exactos de la voz
+    let inWord = false;
+    if (speaking && cur) {
+      const ct = voiceEl.currentTime;
+      while (wi < cur.marks.length && cur.marks[wi].s <= ct + 0.03) { mark(cur.marks[wi].end); wi++; nod = 1; }
+      const w = cur.marks[wi - 1];
+      inWord = !!w && ct <= w.e + 0.05;
+      if (!analyser) env = inWord ? 0.12 + 0.08 * Math.abs(Math.sin(ct * 18)) : 0;
+    }
+    const target = speaking ? (inWord ? clamp(env * 9, 0.24, 1) : clamp(env * 3, 0, 0.12)) : 0;
+    mouth += (target - mouth) * (1 - Math.exp(-dt * 22));
+    nod *= Math.exp(-dt * 7);
+    talk.style.opacity = mouth > 0.18 ? 1 : 0;
+    talk.playbackRate = clamp(0.8 + mouth * 0.7, 0.5, 2);
+    el.style.setProperty('--amp', mouth.toFixed(2));
+
+    // Señalar la capa de vez en cuando
     gestureT -= dt;
     const ak = activeLayer();
-    if (gestureT <= 0) { gestureT = 11 + Math.random() * 7; if (ak >= 0 && state.mode === 'journey') point(ak, 3.2); }
-    let tryX = 0, tryY = 0;
+    if (gestureT <= 0) { gestureT = 10 + Math.random() * 8; if (ak >= 0 && state.mode === 'journey') point(ak, 3.2); }
+    const r = wrap.getBoundingClientRect(), sx = r.left + r.width / 2, sy = r.top + r.height / 2;
+    let tx = clamp((mx - sx) / innerWidth * 46, -20, 20), ty = clamp(-(my - sy) / innerHeight * 22, -10, 10);
     if (pointT > 0 && pointK >= 0) {
       pointT -= dt;
-      const L = layerScreen(pointK), r = wrap.getBoundingClientRect();
+      const L = layerScreen(pointK);
       if (L && L.vis && r.width) {
-        const sx = r.left + r.width / 2, sy = r.top + r.height / 2;
-        const mx = (sx + L.x) / 2, my = Math.min(sy, L.y) - 70;
-        apPath.setAttribute('d', `M${sx},${sy} Q${mx},${my} ${L.x},${L.y}`);
+        const qx = (sx + L.x) / 2, qy = Math.min(sy, L.y) - 70;
+        apPath.setAttribute('d', `M${sx},${sy} Q${qx},${qy} ${L.x},${L.y}`);
         apPath.style.strokeDashoffset = (-t * 40) % 1000;
         const p1 = (t * 0.9) % 1, p2 = (t * 0.9 + 0.5) % 1;
-        ping1.setAttribute('cx', L.x); ping1.setAttribute('cy', L.y); ping1.setAttribute('r', 8 + p1 * 34); ping1.style.opacity = (1 - p1) * 0.8;
-        ping2.setAttribute('cx', L.x); ping2.setAttribute('cy', L.y); ping2.setAttribute('r', 8 + p2 * 34); ping2.style.opacity = (1 - p2) * 0.8;
+        for (const [c, p] of [[ping1, p1], [ping2, p2]]) { c.setAttribute('cx', L.x); c.setAttribute('cy', L.y); c.setAttribute('r', 8 + p * 34); c.style.opacity = (1 - p) * 0.8; }
         apDot.setAttribute('cx', L.x); apDot.setAttribute('cy', L.y);
         svg.style.opacity = clamp(pointT * 2, 0, 1);
-        tryX = clamp((L.x - sx) / innerWidth * 70, -28, 28); tryY = clamp(-(L.y - sy) / innerHeight * 30, -14, 14);
+        tx = clamp((L.x - sx) / innerWidth * 80, -30, 30); ty = clamp(-(L.y - sy) / innerHeight * 34, -16, 16);
       }
     } else svg.style.opacity = 0;
-    ry += (tryX - ry) * (1 - Math.exp(-dt * 4)); rx += (tryY - rx) * (1 - Math.exp(-dt * 4));
-    face.style.transform = `perspective(280px) rotateY(${ry.toFixed(1)}deg) rotateX(${rx.toFixed(1)}deg) translateY(${(-a * 3).toFixed(1)}px) scale(${(1 + a * 0.03).toFixed(3)})`;
+    // Movimiento natural: deriva lenta + asentir con cada palabra
+    tx += Math.sin(t * 0.7) * 3; ty += Math.sin(t * 0.9 + 1) * 2 - nod * 5;
+    ry += (tx - ry) * (1 - Math.exp(-dt * 4)); rx += (ty - rx) * (1 - Math.exp(-dt * 4));
+    const tilt = Math.sin(t * 0.5) * 2 + (speaking ? Math.sin(t * 2.3) * 1.5 : 0);
+    face.style.transform = `perspective(280px) rotateY(${ry.toFixed(1)}deg) rotateX(${rx.toFixed(1)}deg) rotateZ(${tilt.toFixed(1)}deg) translateY(${(-mouth * 2 - nod * 2).toFixed(1)}px) scale(${(1 + mouth * 0.025).toFixed(3)})`;
   }
 
   function setJourney(on) {
     el.classList.toggle('hidden', !on);
     svg.style.display = on ? '' : 'none';
-    if (on) { idx = -1; say(0); } else { stopSpeech(); }
+    if (on) { idx = -1; say(0); } else stop();
   }
 
-  return { say, frame, setJourney, point, stop: stopSpeech };
+  return { say, frame, setJourney, point, stop, play, _debug: () => ({ speaking, t: voiceEl.currentTime, paused: voiceEl.paused, wi, mouth, analyser: !!analyser, ctx: sfx.ctx && sfx.ctx.state }) };
 }

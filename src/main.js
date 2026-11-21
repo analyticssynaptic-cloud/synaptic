@@ -736,4 +736,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // Exponer para depuración
-window.__synaptic = { stage, world, game, state, openNode, chip, skipIntro: () => { introT = 4; } };
+window.__synaptic = { stage, world, game, state, openNode, chip, aria, skipIntro: () => { introT = 4; } };

@@ -123,6 +123,25 @@
       <button id="ariaVoice" class="aria-link" type="button">▶ Escuchar su voz original</button>
     </div>
   </div>
+  <div id="ariaBody" class="ab" aria-hidden="true">
+    <div class="ab-box">
+      <button class="x" id="abClose" aria-label="Cerrar">✕</button>
+      <div class="ab-head">
+        <div><div class="ab-k">Proyecto · ARIA Red Sináptica</div><h2>ARIA de cuerpo completo</h2></div>
+        <div class="ab-tabs">
+          <button data-t="body" class="on">Cuerpo completo</button>
+          <button data-t="red">Su red neuronal</button>
+          <button data-t="avatar">Avatar 3D</button>
+          <a id="abGit" class="ab-git" target="_blank" rel="noopener">Ver en GitHub ↗</a>
+        </div>
+      </div>
+      <div class="ab-stage">
+        <video id="abVideo" src="aria/intro.mp4" playsinline muted preload="none"></video>
+        <div id="abEnd" class="ab-end" style="display:none"><p>Así soy de cuerpo completo. ¿Quieres ver la red de agentes que me compone?</p><button class="btn-main" id="abNext" style="background:#7fe8ff">Ver su red neuronal →</button></div>
+        <iframe id="abFrame" title="Proyecto ARIA Red Sináptica" style="display:none" allow="autoplay; fullscreen"></iframe>
+      </div>
+    </div>
+  </div>
   <div id="tip" class="tip"><div class="tip-k"></div><div class="tip-t"></div><p></p><span class="tip-c">Clic para ver el detalle →</span></div>
   <div id="toast" class="toast"></div>
 
