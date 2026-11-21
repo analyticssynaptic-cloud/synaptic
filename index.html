@@ -6,6 +6,23 @@
   <title>SYNAPTIC — Sincroniza tu empresa con el futuro</title>
   <meta name="description" content="Synaptic: empresa de tecnología. Experiencias web 3D, apps, inteligencia artificial, ciberseguridad, cloud, IoT y realidad aumentada. Explora nuestros servicios dentro del Animus." />
   <meta name="theme-color" content="#01030a" />
+  <script>
+    // Guardián de caché: si el navegador guardó una versión vieja de la página y su código
+    // ya no existe tras una nueva publicación, recarga una sola vez con la versión fresca.
+    (function () {
+      var KEY = 'synaptic.reload', tried = false;
+      try { tried = sessionStorage.getItem(KEY) === '1'; } catch (e) {}
+      function fresh() {
+        if (tried || window.__synapticBooted) return;
+        try { sessionStorage.setItem(KEY, '1'); } catch (e) {}
+        var u = location.href.replace(/([?&])r=\d+&?/, '$1').replace(/[?&]$/, '');
+        location.replace(u + (u.indexOf('?') < 0 ? '?' : '&') + 'r=' + Date.now());
+      }
+      addEventListener('error', function (e) { var t = e.target; if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) fresh(); }, true);
+      setTimeout(fresh, 10000);
+      addEventListener('load', function () { setTimeout(function () { if (window.__synapticBooted) { try { sessionStorage.removeItem(KEY); } catch (e) {} } }, 3000); });
+    })();
+  </script>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

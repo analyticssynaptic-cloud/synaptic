@@ -1,3 +1,4 @@
+window.__synapticBooted = true;
 import './style.css';
 import * as THREE from 'three';
 import { Stage } from './stage.js';
